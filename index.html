@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Brew Builder</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0c0b0a; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { opacity: 1; }
+    select option { background: #171511; color: #e8e0cf; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useRef, useCallback } = React;
+
+    // ── window.storage shim for standalone (uses localStorage) ───────────────
+    window.storage = {
+      get: async (key) => {
+        const val = localStorage.getItem(key);
+        return val ? { key, value: val } : null;
+      },
+      set: async (key, value) => {
+        localStorage.setItem(key, value);
+        return { key, value };
+      },
+      delete: async (key) => {
+        localStorage.removeItem(key);
+        return { key, deleted: true };
+      },
+      list: async (prefix = "") => {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+        return { keys };
+      },
+    };
+
+
+// ─── Static Data ──────────────────────────────────────────────────────────────
+
+const MALTS = [
+  { name: "2-Row Pale",     ppg: 37, color: 1.8 },
+  { name: "Maris Otter",    ppg: 38, color: 3.0 },
+  { name: "Pilsner",        ppg: 37, color: 1.5 },
+  { name: "Vienna",         ppg: 36, color: 4.0 },
+  { name: "Munich Light",   ppg: 37, color: 10  },
+  { name: "Munich Dark",    ppg: 37, color: 20  },
+  { name: "Wheat Malt",     ppg: 38, color: 2.0 },
+  { name: "Rye Malt",       ppg: 37, color: 3.0 },
+  { name: "Flaked Wheat",   ppg: 35, color: 2.0 },
+  { name: "Flaked Oats",    ppg: 33, color: 1.0 },
+  { name: "Flaked Barley",  ppg: 32, color: 2.0 },
+  { name: "Cara-Pils",      ppg: 35, color: 2.0 },
+  { name: "Crystal 20L",    ppg: 35, color: 20  },
+  { name: "Crystal 40L",    ppg: 34, color: 40  },
+  { name: "Crystal 60L",    ppg: 34, color: 60  },
+  { name: "Crystal 80L",    ppg: 33, color: 80  },
+  { name: "Crystal 120L",   ppg: 33, color: 120 },
+  { name: "Aromatic",       ppg: 36, color: 26  },
+  { name: "Biscuit",        ppg: 35, color: 25  },
+  { name: "Honey Malt",     ppg: 37, color: 25  },
+  { name: "Special B",      ppg: 31, color: 180 },
+  { name: "Chocolate Malt", ppg: 28, color: 350 },
+  { name: "Roasted Barley", ppg: 25, color: 300 },
+  { name: "Black Patent",   ppg: 25, color: 500 },
+  { name: "Smoked Malt",    ppg: 37, color: 5.0 },
+];
+
+const HOPS = [
+  { name: "Amarillo",             aa: 9.0  },
+  { name: "Azacca",               aa: 15.0 },
+  { name: "Cascade",              aa: 5.5  },
+  { name: "Centennial",           aa: 10.0 },
+  { name: "Chinook",              aa: 13.0 },
+  { name: "Citra",                aa: 12.0 },
+  { name: "Columbus (CTZ)",       aa: 15.0 },
+  { name: "El Dorado",            aa: 15.0 },
+  { name: "Fuggle",               aa: 4.5  },
+  { name: "Galaxy",               aa: 14.0 },
+  { name: "Hallertau Mittelfrüh", aa: 4.0  },
+  { name: "Magnum",               aa: 14.0 },
+  { name: "Mosaic",               aa: 12.5 },
+  { name: "Nugget",               aa: 13.0 },
+  { name: "Saaz",                 aa: 3.5  },
+  { name: "Simcoe",               aa: 13.0 },
+  { name: "Styrian Goldings",     aa: 5.5  },
+  { name: "Tettnang",             aa: 4.5  },
+  { name: "Warrior",              aa: 16.0 },
+  { name: "Willamette",           aa: 5.0  },
+];
+
+const YEASTS = [
+  { name: "US-05 (American Ale)",    atten: 81, floc: "Medium",    temp: "59–75°F" },
+  { name: "Nottingham",              atten: 77, floc: "High",       temp: "57–70°F" },
+  { name: "S-33 (Belgian)",          atten: 72, floc: "Medium",    temp: "59–75°F" },
+  { name: "BE-256 (Abbey)",          atten: 82, floc: "High",       temp: "59–77°F" },
+  { name: "WY1056 American Ale",     atten: 75, floc: "Low-Med",   temp: "60–72°F" },
+  { name: "WY1214 Belgian Abbey",    atten: 75, floc: "Med-High",  temp: "68–78°F" },
+  { name: "WY1388 Belgian Strong",   atten: 78, floc: "Low",       temp: "65–85°F" },
+  { name: "WY1968 London ESB",       atten: 67, floc: "Very High", temp: "64–72°F" },
+  { name: "WY3522 Belgian Ardennes", atten: 78, floc: "Low",       temp: "65–85°F" },
+  { name: "WY3787 Trappist HG",      atten: 78, floc: "Medium",    temp: "64–78°F" },
+  { name: "WY2206 Bavarian Lager",   atten: 73, floc: "Medium",    temp: "46–56°F" },
+  { name: "WLP001 California Ale",   atten: 74, floc: "Medium",    temp: "65–72°F" },
+  { name: "WLP500 Trappist Ale",     atten: 78, floc: "Low-Med",   temp: "65–72°F" },
+  { name: "W-34/70 Lager",           atten: 82, floc: "High",       temp: "48–72°F" },
+];
+
+const STYLES = [
+  "American Pale Ale","American IPA","Double IPA","West Coast IPA","Hazy IPA",
+  "American Amber","American Stout","Oatmeal Stout","Imperial Stout",
+  "Belgian Tripel","Belgian Dubbel","Belgian Golden Strong","Belgian Quad",
+  "Saison","Witbier","English Bitter","English Porter",
+  "Brown Ale","Hefeweizen","Dunkelweizen","Kölsch","Pilsner","Other",
+];
+
+// ─── Calculations ─────────────────────────────────────────────────────────────
+
+function srmToRgb(srm) {
+  const s = Math.min(Math.max(srm, 0), 40);
+  const table = [
+    [0,[255,239,153]],[2,[255,216,106]],[4,[255,186,66]],
+    [6,[248,166,0]],  [8,[224,120,0]], [12,[176,72,0]],
+    [16,[128,44,0]],  [20,[96,28,0]],  [30,[52,12,0]],[40,[16,4,0]],
+  ];
+  for (let i = 0; i < table.length - 1; i++) {
+    if (s >= table[i][0] && s <= table[i+1][0]) {
+      const t = (s-table[i][0])/(table[i+1][0]-table[i][0]);
+      return table[i][1].map((c,j)=>Math.round(c+(table[i+1][1][j]-c)*t));
+    }
+  }
+  return [16,4,0];
+}
+const srmToHex = s => { const [r,g,b]=srmToRgb(s); return `rgb(${r},${g},${b})`; };
+
+function tinsethIBU(aa, oz, mins, ogPts, batchGal) {
+  if (!oz||oz<=0||mins<=0||batchGal<=0) return 0;
+  const og=1+ogPts/1000;
+  return 1.65*Math.pow(0.000125,og-1)*((1-Math.exp(-0.04*mins))/4.15)*(aa/100)*oz*7489/batchGal;
+}
+
+function calcStats(grains, hops, yeast, batchSize, efficiency) {
+  const bs=parseFloat(batchSize)||5.5, eff=parseFloat(efficiency)||75;
+  const totalGrainPts=grains.reduce((s,g)=>s+(parseFloat(g.lbs)||0)*g.ppg,0);
+  const ogPts=totalGrainPts*(eff/100)/bs;
+  const og=1+ogPts/1000, fg=1+(ogPts/1000)*(1-yeast.atten/100), abv=(og-fg)*131.25;
+  const mcu=grains.reduce((s,g)=>s+(parseFloat(g.lbs)||0)*g.color,0)/bs;
+  const srm=mcu>0?1.4922*Math.pow(mcu,0.6859):0;
+  const ibu=hops.filter(h=>h.type==="Boil"||h.type==="Whirlpool")
+    .reduce((s,h)=>s+tinsethIBU(parseFloat(h.aa)||0,parseFloat(h.oz)||0,
+      h.type==="Whirlpool"?15:(parseFloat(h.time)||0),ogPts,bs),0);
+  const lbs=grains.reduce((s,g)=>s+(parseFloat(g.lbs)||0),0);
+  return { og,fg,abv,srm,ibu,bgu:og>1?ibu/((og-1)*1000):0,
+    lbs,ogPts,bs,preboilOG:1+(ogPts*bs)/((bs+1)*1000),totalGrainPts };
+}
+
+// ─── GitHub API ───────────────────────────────────────────────────────────────
+
+const GH_API = "https://api.github.com";
+
+function ghHeaders(pat) {
+  return { Authorization:`token ${pat}`, Accept:"application/vnd.github.v3+json",
+    "Content-Type":"application/json" };
+}
+
+// Safe base64 encode/decode for unicode JSON
+const b64enc = str => btoa(unescape(encodeURIComponent(str)));
+const b64dec = str => decodeURIComponent(escape(atob(str.replace(/\s/g,""))));
+
+async function ghGet(cfg, path) {
+  const res = await fetch(`${GH_API}/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
+    { headers: ghHeaders(cfg.pat) });
+  if (res.status === 404) return null;
+  if (!res.ok) { const e=await res.json(); throw new Error(e.message||`GET ${res.status}`); }
+  const data = await res.json();
+  return { content: JSON.parse(b64dec(data.content)), sha: data.sha };
+}
+
+async function ghPut(cfg, path, content, sha, message) {
+  const body = { message, content: b64enc(JSON.stringify(content, null, 2)) };
+  if (sha) body.sha = sha;
+  const res = await fetch(`${GH_API}/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
+    { method:"PUT", headers:ghHeaders(cfg.pat), body:JSON.stringify(body) });
+  if (!res.ok) { const e=await res.json(); throw new Error(e.message||`PUT ${res.status}`); }
+  const data = await res.json();
+  return data.content.sha;
+}
+
+async function ghDelete(cfg, path, sha, message) {
+  const res = await fetch(`${GH_API}/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
+    { method:"DELETE", headers:ghHeaders(cfg.pat),
+      body:JSON.stringify({ message, sha }) });
+  if (!res.ok && res.status!==404) { const e=await res.json(); throw new Error(e.message||`DELETE ${res.status}`); }
+}
+
+async function testConnection(cfg) {
+  const res = await fetch(`${GH_API}/repos/${cfg.owner}/${cfg.repo}`,
+    { headers: ghHeaders(cfg.pat) });
+  if (!res.ok) throw new Error("Repo not found or token lacks access");
+  return true;
+}
+
+// ─── window.storage (config only) ────────────────────────────────────────────
+
+const CFG_KEY = "brewbuilder-github-config";
+
+async function loadConfig() {
+  try { const r=await window.storage.get(CFG_KEY); return r?JSON.parse(r.value):null; }
+  catch { return null; }
+}
+async function saveConfig(cfg) {
+  try { await window.storage.set(CFG_KEY, JSON.stringify(cfg)); } catch {}
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+function useWidth() {
+  const [w,setW]=useState(()=>typeof window!=="undefined"?window.innerWidth:800);
+  useEffect(()=>{const fn=()=>setW(window.innerWidth);window.addEventListener("resize",fn);
+    return()=>window.removeEventListener("resize",fn);},[]);
+  return w;
+}
+
+let _uid=1;
+const uid=()=>_uid++;
+const genId=()=>Math.random().toString(36).slice(2,10);
+
+function blankRecipe(name="New Recipe") {
+  return {
+    id:genId(), name, style:"American Pale Ale",
+    batchSize:"5.5", efficiency:"75", notes:"",
+    grains:[
+      {id:uid(),name:"2-Row Pale",ppg:37,color:1.8,lbs:"10"},
+      {id:uid(),name:"Crystal 40L",ppg:34,color:40,lbs:"0.75"},
+    ],
+    hops:[
+      {id:uid(),name:"Cascade",aa:"5.5",oz:"1.0",time:"60",type:"Boil"},
+      {id:uid(),name:"Cascade",aa:"5.5",oz:"0.75",time:"15",type:"Boil"},
+      {id:uid(),name:"Cascade",aa:"5.5",oz:"0.5",time:"0",type:"Dry Hop"},
+    ],
+    yeast:YEASTS[0],
+    actuals:{brewDate:"",preBoilVol:"",preBoilOG:"",og:"",fg:"",batchVol:"",notes:""},
+    versions:[],
+    createdAt:Date.now(), updatedAt:Date.now(),
+  };
+}
+
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+
+const C = {
+  bg:"#0c0b0a",surface:"#171511",elevated:"#201d18",
+  border:"#2a2620",borderLt:"#3a342c",
+  amber:"#c8870a",amberLt:"#e09c1a",amberDim:"#6b4a08",amberGlow:"rgba(200,135,10,0.12)",
+  cream:"#e8e0cf",muted:"#7a7060",faint:"#3a3428",
+  red:"#a03025",green:"#2e7a3a",greenGlow:"rgba(46,122,58,0.15)",
+  blue:"#2a6a9a",
+};
+const mono  = "'Courier Prime','Courier New',monospace";
+const serif = "'Playfair Display',Georgia,serif";
+
+// ─── Primitives ───────────────────────────────────────────────────────────────
+
+const Label = ({children})=><div style={{fontSize:10,color:C.muted,letterSpacing:"0.1em",
+  textTransform:"uppercase",marginBottom:4,fontFamily:mono}}>{children}</div>;
+
+const SHead = ({children})=><div style={{fontSize:10,color:C.amber,letterSpacing:"0.14em",
+  textTransform:"uppercase",fontWeight:700,fontFamily:mono,marginBottom:14,
+  display:"flex",alignItems:"center",gap:7}}>
+  <span style={{width:6,height:6,borderRadius:"50%",background:C.amber,display:"inline-block",opacity:0.7}}/>
+  {children}
+</div>;
+
+function Inp({value,onChange,step=1,min=0,disabled,sx={}}) {
+  return <input type="number" value={value} step={step} min={min} disabled={disabled}
+    onChange={e=>onChange(e.target.value)}
+    style={{background:disabled?C.elevated:C.bg,border:`1px solid ${C.border}`,borderRadius:4,
+      color:disabled?C.muted:C.cream,padding:"10px",fontSize:15,fontFamily:mono,outline:"none",
+      width:"100%",boxSizing:"border-box",opacity:disabled?0.45:1,WebkitAppearance:"none",minHeight:44,...sx}}/>;
+}
+
+function Sel({value,onChange,children,sx={}}) {
+  return <div style={{position:"relative",...sx}}>
+    <select value={value} onChange={onChange} style={{background:C.bg,border:`1px solid ${C.border}`,
+      borderRadius:4,color:C.cream,padding:"10px 28px 10px 10px",fontSize:15,fontFamily:mono,
+      outline:"none",cursor:"pointer",width:"100%",boxSizing:"border-box",
+      appearance:"none",WebkitAppearance:"none",minHeight:44}}>
+      {children}
+    </select>
+    <span style={{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",
+      color:C.muted,pointerEvents:"none",fontSize:10}}>▼</span>
+  </div>;
+}
+
+function TxtInp({value,onChange,placeholder,type="text",sx={}}) {
+  return <input type={type} value={value} placeholder={placeholder}
+    onChange={e=>onChange(e.target.value)}
+    style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,color:C.cream,
+      padding:"10px",fontSize:14,fontFamily:mono,outline:"none",width:"100%",
+      boxSizing:"border-box",minHeight:44,...sx}}/>;
+}
+
+const RO=({children,sx={}})=><div style={{background:C.elevated,border:`1px solid ${C.border}`,
+  borderRadius:4,color:C.muted,padding:"10px",fontSize:14,fontFamily:mono,
+  minHeight:44,display:"flex",alignItems:"center",...sx}}>{children}</div>;
+
+function Btn({onClick,children,variant="amber",sx={},disabled=false}) {
+  const v={
+    amber:{bg:C.amberGlow,border:`1px solid ${C.amberDim}`,color:C.amber},
+    green:{bg:C.greenGlow,border:`1px solid ${C.green}`,color:C.green},
+    ghost:{bg:"transparent",border:`1px solid ${C.faint}`,color:C.muted},
+    danger:{bg:"transparent",border:`1px solid ${C.red}`,color:C.red},
+  }[variant]||{};
+  return <button onClick={onClick} disabled={disabled}
+    style={{...v,borderRadius:4,padding:"8px 14px",fontSize:12,cursor:disabled?"not-allowed":"pointer",
+      fontFamily:mono,letterSpacing:"0.06em",flexShrink:0,minHeight:36,opacity:disabled?0.5:1,...sx}}>
+    {children}
+  </button>;
+}
+
+const XBtn=({onClick})=><button onClick={onClick} style={{background:"transparent",
+  border:`1px solid ${C.faint}`,color:C.faint,borderRadius:4,cursor:"pointer",fontSize:20,
+  lineHeight:1,fontFamily:mono,minWidth:44,minHeight:44,flexShrink:0,
+  display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>;
+
+const Card=({children,sx={}})=><div style={{background:C.surface,border:`1px solid ${C.border}`,
+  borderRadius:6,padding:14,...sx}}>{children}</div>;
+
+function Modal({onClose,title,children,width=480}) {
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:100,
+    display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
+    onClick={onClose}>
+    <div style={{background:C.surface,border:`1px solid ${C.borderLt}`,borderRadius:8,
+      width:"100%",maxWidth:width,maxHeight:"88vh",overflowY:"auto",
+      boxShadow:"0 20px 60px rgba(0,0,0,0.7)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+        padding:"14px 16px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{fontFamily:mono,fontSize:11,color:C.amber,letterSpacing:"0.14em",
+          textTransform:"uppercase",fontWeight:700}}>{title}</div>
+        <XBtn onClick={onClose}/>
+      </div>
+      <div style={{padding:16}}>{children}</div>
+    </div>
+  </div>;
+}
+
+// ─── Sync status badge ────────────────────────────────────────────────────────
+
+function SyncBadge({status,error,onRetry}) {
+  const map = {
+    idle:     {color:C.faint,  label:""},
+    syncing:  {color:C.amber,  label:"⟳ syncing…"},
+    synced:   {color:C.green,  label:"✓ synced"},
+    error:    {color:C.red,    label:"✗ sync error"},
+  };
+  const {color,label} = map[status]||map.idle;
+  if (!label) return null;
+  return <span onClick={status==="error"?onRetry:undefined}
+    style={{fontSize:10,color,fontFamily:mono,letterSpacing:"0.08em",
+      cursor:status==="error"?"pointer":"default",
+      padding:"3px 8px",border:`1px solid ${color}44`,borderRadius:4}}>
+    {label}{status==="error"&&error?`: ${error.slice(0,40)}`:""}
+    {status==="error"?" (tap to retry)":""}
+  </span>;
+}
+
+// ─── Actuals comparison ───────────────────────────────────────────────────────
+
+function CompRow({label,target,actual,fmt,unit="",mobile}) {
+  const hasA = actual!==""&&actual!==null&&actual!==undefined;
+  const tVal = parseFloat(target)||0;
+  const aVal = parseFloat(actual);
+  const d    = hasA&&!isNaN(aVal) ? aVal-tVal : null;
+  const tStr = fmt?fmt(tVal):tVal.toFixed(3);
+  const aStr = hasA&&!isNaN(aVal)?(fmt?fmt(aVal):aVal.toFixed(3)):"—";
+  const dColor = d===null?C.faint:Math.abs(d)<0.0005?C.muted:d>0?C.green:C.red;
+  const dStr  = d===null?"—":`${d>0?"+":""}${fmt?fmt(d):d.toFixed(3)}`;
+  return (
+    <div style={{display:"grid",
+      gridTemplateColumns:mobile?"1fr 1fr 1fr":"160px 1fr 1fr 1fr",
+      gap:8,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+      {mobile
+        ?<div style={{fontSize:10,color:C.muted,fontFamily:mono,letterSpacing:"0.06em",
+            textTransform:"uppercase",gridColumn:"1/-1",marginBottom:2}}>{label}</div>
+        :<div style={{fontSize:11,color:C.muted,fontFamily:mono,letterSpacing:"0.06em",
+            textTransform:"uppercase"}}>{label}</div>}
+      {[{lbl:"Target",val:tStr,c:C.amber},{lbl:"Actual",val:aStr,c:hasA?C.cream:C.faint},
+        {lbl:"Δ",val:dStr,c:dColor}].map(({lbl,val,c})=>(
+        <div key={lbl} style={{textAlign:"center"}}>
+          <div style={{fontSize:9,color:C.faint,letterSpacing:"0.1em",
+            textTransform:"uppercase",marginBottom:3}}>{lbl}</div>
+          <div style={{fontFamily:mono,fontSize:16,color:c,fontWeight:700}}>
+            {val}<span style={{fontSize:10,color:C.muted}}>{val!=="—"?unit:""}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Settings Modal ───────────────────────────────────────────────────────────
+
+function SettingsModal({onSave,onClose,initial={}}) {
+  const [owner, setOwner] = useState(initial.owner||"");
+  const [repo,  setRepo]  = useState(initial.repo||"");
+  const [pat,   setPat]   = useState("");
+  const [testing,setTesting]=useState(false);
+  const [msg,   setMsg]   = useState("");
+  const [ok,    setOk]    = useState(false);
+
+  const handleTest = async()=>{
+    if(!owner||!repo||!pat){setMsg("Fill in all fields first.");return;}
+    setTesting(true);setMsg("");setOk(false);
+    try {
+      await testConnection({owner,repo,pat});
+      setMsg("✓ Connected successfully!");setOk(true);
+    } catch(e){setMsg(`✗ ${e.message}`);}
+    setTesting(false);
+  };
+
+  return <Modal onClose={onClose} title="GitHub Sync Setup" width={460}>
+    <div style={{fontSize:12,color:C.muted,fontFamily:mono,lineHeight:1.7,marginBottom:16}}>
+      Recipes will be saved as JSON files in your GitHub repo.<br/>
+      Your token is stored only in this artifact — never transmitted elsewhere.
+    </div>
+    <div style={{marginBottom:12}}>
+      <Label>GitHub Username</Label>
+      <TxtInp value={owner} onChange={setOwner} placeholder="e.g. krushcuts"/>
+    </div>
+    <div style={{marginBottom:12}}>
+      <Label>Repository Name</Label>
+      <TxtInp value={repo} onChange={setRepo} placeholder="e.g. brew-builder"/>
+    </div>
+    <div style={{marginBottom:16}}>
+      <Label>Personal Access Token (fine-grained, Contents: read+write)</Label>
+      <TxtInp value={pat} onChange={setPat} type="password" placeholder="github_pat_…"/>
+    </div>
+    {msg&&<div style={{fontSize:12,fontFamily:mono,marginBottom:14,
+      color:ok?C.green:C.red,padding:"8px 10px",
+      border:`1px solid ${ok?C.green:C.red}22`,borderRadius:4}}>{msg}</div>}
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+      {onClose&&<Btn onClick={onClose} variant="ghost">Cancel</Btn>}
+      <Btn onClick={handleTest} variant="ghost" disabled={testing}>
+        {testing?"Testing…":"Test Connection"}
+      </Btn>
+      <Btn onClick={()=>onSave({owner,repo,pat})} variant="green" disabled={!ok}>
+        Save &amp; Connect
+      </Btn>
+    </div>
+  </Modal>;
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+
+export default function BrewBuilder() {
+  const width  = useWidth();
+  const mobile = width < 640;
+
+  useEffect(()=>{
+    const link=document.createElement("link");
+    link.rel="stylesheet";
+    link.href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Courier+Prime:wght@400;700&display=swap";
+    document.head.appendChild(link);
+    return()=>{try{document.head.removeChild(link);}catch(e){}};
+  },[]);
+
+  // ── Config / sync state ──
+  const [cfg,       setCfg]       = useState(null);       // {owner,repo,pat}
+  const [syncStatus,setSyncStatus]= useState("idle");     // idle|syncing|synced|error
+  const [syncError, setSyncError] = useState("");
+  const [showSetup, setShowSetup] = useState(false);
+  const shaCache = useRef({});                             // path → sha
+
+  // ── Recipe state ──
+  const [recipe,   setRecipe]   = useState(blankRecipe("Cascade Pale Ale"));
+  const [index,    setIndex]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [dirty,    setDirty]    = useState(false);
+
+  // ── UI state ──
+  const [showRecipes,  setShowRecipes]  = useState(false);
+  const [showSave,     setShowSave]     = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [vLabel,       setVLabel]       = useState("");
+  const [saveMsg,      setSaveMsg]      = useState("");
+
+  // ── Load config on mount ──
+  useEffect(()=>{
+    loadConfig().then(c=>{
+      if(c){ setCfg(c); }
+      else { setShowSetup(true); setLoading(false); }
+    });
+  },[]);
+
+  // ── Load recipes when config ready ──
+  useEffect(()=>{
+    if(!cfg) return;
+    (async()=>{
+      setLoading(true);
+      try {
+        const res = await ghGet(cfg,"recipes/index.json");
+        if(res){
+          shaCache.current["recipes/index.json"]=res.sha;
+          setIndex(res.content);
+          if(res.content.length>0){
+            const rr=await ghGet(cfg,`recipes/${res.content[0].id}.json`);
+            if(rr){ shaCache.current[`recipes/${res.content[0].id}.json`]=rr.sha; setRecipe(rr.content); }
+          }
+        }
+      } catch(e){ setSyncError(e.message); setSyncStatus("error"); }
+      setLoading(false);
+    })();
+  },[cfg]);
+
+  // ── GitHub write helpers ──
+  const writeRecipe = useCallback(async(r,idx)=>{
+    if(!cfg) return;
+    setSyncStatus("syncing");
+    try {
+      const rPath=`recipes/${r.id}.json`;
+      const iPath="recipes/index.json";
+      const newShaR = await ghPut(cfg,rPath,r,shaCache.current[rPath],
+        `Update recipe: ${r.name}`);
+      shaCache.current[rPath]=newShaR;
+      const newShaI = await ghPut(cfg,iPath,idx,shaCache.current[iPath],
+        `Update index: ${r.name}`);
+      shaCache.current[iPath]=newShaI;
+      setSyncStatus("synced");
+      setSyncError("");
+      setTimeout(()=>setSyncStatus("idle"),3000);
+    } catch(e){ setSyncStatus("error"); setSyncError(e.message); }
+  },[cfg]);
+
+  // ── Auto-save debounce ──
+  const pendingRecipe = useRef(null);
+  const pendingIndex  = useRef(null);
+  useEffect(()=>{
+    if(!dirty||!cfg) return;
+    pendingRecipe.current=recipe;
+    const newIdx=index.some(x=>x.id===recipe.id)
+      ?index.map(x=>x.id===recipe.id?{id:recipe.id,name:recipe.name,style:recipe.style,updatedAt:recipe.updatedAt}:x)
+      :[{id:recipe.id,name:recipe.name,style:recipe.style,updatedAt:recipe.updatedAt},...index];
+    pendingIndex.current=newIdx;
+    const t=setTimeout(async()=>{
+      if(pendingRecipe.current){
+        setIndex(pendingIndex.current);
+        await writeRecipe(pendingRecipe.current,pendingIndex.current);
+        setDirty(false);
+      }
+    },1500);
+    return()=>clearTimeout(t);
+  },[dirty,recipe,cfg]);
+
+  const upRecipe=useCallback((patch)=>{
+    setRecipe(r=>({...r,...patch,updatedAt:Date.now()}));
+    setDirty(true);
+  },[]);
+
+  // ── Stats ──
+  const stats=useMemo(()=>
+    calcStats(recipe.grains,recipe.hops,recipe.yeast,recipe.batchSize,recipe.efficiency),
+    [recipe.grains,recipe.hops,recipe.yeast,recipe.batchSize,recipe.efficiency]);
+
+  const actualStats=useMemo(()=>{
+    const a=recipe.actuals;
+    const aOG=parseFloat(a.og)||null, aFG=parseFloat(a.fg)||null;
+    const aVol=parseFloat(a.batchVol)||null;
+    const actualABV=aOG&&aFG?(aOG-aFG)*131.25:null;
+    const actualEff=(aOG&&aVol&&stats.totalGrainPts>0)
+      ?((aOG-1)*1000*aVol/stats.totalGrainPts*100):null;
+    return{actualABV,actualEff};
+  },[recipe.actuals,stats.totalGrainPts]);
+
+  // ── Grain ops ──
+  const addGrain    = ()=>upRecipe({grains:[...recipe.grains,{id:uid(),name:"2-Row Pale",ppg:37,color:1.8,lbs:"1"}]});
+  const removeGrain = id=>upRecipe({grains:recipe.grains.filter(x=>x.id!==id)});
+  const upGrain     = (id,f,v)=>upRecipe({grains:recipe.grains.map(x=>x.id===id?{...x,[f]:v}:x)});
+  const setGrainP   = (id,name)=>{const p=MALTS.find(m=>m.name===name);
+    if(p)upRecipe({grains:recipe.grains.map(x=>x.id===id?{...x,name:p.name,ppg:p.ppg,color:p.color}:x)});};
+
+  // ── Hop ops ──
+  const addHop    = ()=>upRecipe({hops:[...recipe.hops,{id:uid(),name:"Cascade",aa:"5.5",oz:"1.0",time:"60",type:"Boil"}]});
+  const removeHop = id=>upRecipe({hops:recipe.hops.filter(x=>x.id!==id)});
+  const upHop     = (id,f,v)=>upRecipe({hops:recipe.hops.map(x=>x.id===id?{...x,[f]:v}:x)});
+  const setHopP   = (id,name)=>{const p=HOPS.find(h=>h.name===name);
+    if(p)upRecipe({hops:recipe.hops.map(x=>x.id===id?{...x,name:p.name,aa:String(p.aa)}:x)});};
+
+  const upActuals = (f,v)=>upRecipe({actuals:{...recipe.actuals,[f]:v}});
+
+  // ── Save version ──
+  const handleSaveVersion=async()=>{
+    const vNum=(recipe.versions||[]).length+1;
+    const label=vLabel.trim()||`Version ${vNum}`;
+    const version={id:genId(),num:vNum,label,savedAt:Date.now(),
+      snapshot:{name:recipe.name,style:recipe.style,batchSize:recipe.batchSize,
+        efficiency:recipe.efficiency,notes:recipe.notes,
+        grains:JSON.parse(JSON.stringify(recipe.grains)),
+        hops:JSON.parse(JSON.stringify(recipe.hops)),
+        yeast:{...recipe.yeast},actuals:{...recipe.actuals}}};
+    const updated={...recipe,versions:[...(recipe.versions||[]),version],updatedAt:Date.now()};
+    setRecipe(updated);
+    setVLabel("");setShowSave(false);
+    setSaveMsg(`Saved "${label}"`);
+    setTimeout(()=>setSaveMsg(""),3000);
+    const newIdx=index.some(x=>x.id===updated.id)
+      ?index.map(x=>x.id===updated.id?{id:updated.id,name:updated.name,style:updated.style,updatedAt:updated.updatedAt}:x)
+      :[{id:updated.id,name:updated.name,style:updated.style,updatedAt:updated.updatedAt},...index];
+    setIndex(newIdx);
+    await writeRecipe(updated,newIdx);
+  };
+
+  // ── Load version ──
+  const loadVersion=v=>{
+    const s=v.snapshot;
+    setRecipe(r=>({...r,...s,versions:r.versions,id:r.id,createdAt:r.createdAt}));
+    setShowVersions(false);setDirty(true);
+  };
+
+  // ── Recipe management ──
+  const handleNewRecipe=async()=>{
+    const r=blankRecipe();
+    setRecipe(r);setDirty(false);setShowRecipes(false);
+    const newIdx=[{id:r.id,name:r.name,style:r.style,updatedAt:r.updatedAt},...index];
+    setIndex(newIdx);
+    await writeRecipe(r,newIdx);
+  };
+
+  const handleLoadRecipe=async(id)=>{
+    setShowRecipes(false);
+    const path=`recipes/${id}.json`;
+    try {
+      setSyncStatus("syncing");
+      const res=await ghGet(cfg,path);
+      if(res){shaCache.current[path]=res.sha;setRecipe(res.content);setDirty(false);}
+      setSyncStatus("synced");setTimeout(()=>setSyncStatus("idle"),2000);
+    }catch(e){setSyncStatus("error");setSyncError(e.message);}
+  };
+
+  const handleDeleteRecipe=async(id,e)=>{
+    e.stopPropagation();
+    const path=`recipes/${id}.json`;
+    const newIdx=index.filter(x=>x.id!==id);
+    setIndex(newIdx);
+    try {
+      if(shaCache.current[path]) await ghDelete(cfg,path,shaCache.current[path],`Delete recipe ${id}`);
+      await ghPut(cfg,"recipes/index.json",newIdx,shaCache.current["recipes/index.json"],"Update index after delete");
+    }catch(e){setSyncStatus("error");setSyncError(e.message);}
+    if(recipe.id===id){
+      if(newIdx.length>0) handleLoadRecipe(newIdx[0].id);
+      else setRecipe(blankRecipe());
+    }
+  };
+
+  // ── Config save ──
+  const handleSaveConfig=async(newCfg)=>{
+    await saveConfig(newCfg);
+    setCfg(newCfg);setShowSetup(false);
+  };
+
+  const srmHex=srmToHex(stats.srm),srmRgb=srmToRgb(stats.srm);
+  const gap=mobile?10:16, pad=mobile?12:20;
+
+  if(loading && cfg) return (
+    <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",
+      justifyContent:"center",fontFamily:mono,color:C.muted,fontSize:13}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:22,color:C.amber,marginBottom:12}}>⟳</div>
+        Loading recipes from GitHub…
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{fontFamily:mono,background:C.bg,minHeight:"100vh",
+      color:C.cream,padding:`${pad}px`,boxSizing:"border-box"}}>
+
+      {/* ── Header ── */}
+      <div style={{marginBottom:gap+4}}>
+        <div style={{display:"flex",justifyContent:"space-between",
+          alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}}>
+          <div style={{fontSize:9,color:C.amberDim,letterSpacing:"0.2em",
+            textTransform:"uppercase"}}>HOMEBREW RECIPE BUILDER</div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <SyncBadge status={syncStatus} error={syncError}
+              onRetry={()=>writeRecipe(recipe,index)}/>
+            <Btn onClick={()=>setShowSetup(true)} variant="ghost"
+              sx={{fontSize:10,padding:"4px 8px",minHeight:28}}>⚙ GitHub</Btn>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:8,alignItems:"flex-end",marginBottom:10,flexWrap:"wrap"}}>
+          <input value={recipe.name} onChange={e=>upRecipe({name:e.target.value})}
+            style={{background:"transparent",border:"none",borderBottom:`1px solid ${C.borderLt}`,
+              borderRadius:0,color:C.cream,padding:"4px 0 6px",
+              fontSize:mobile?22:28,flex:1,minWidth:0,fontFamily:serif,fontWeight:700,outline:"none"}}/>
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <Btn onClick={()=>setShowRecipes(true)} variant="ghost" sx={{fontSize:11}}>
+              ☰ Recipes{index.length>0?` (${index.length})`:""}
+            </Btn>
+            <Btn onClick={()=>setShowSave(true)} variant="green" sx={{fontSize:11}}>
+              ⊕ Save Version
+            </Btn>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{flex:"1 1 180px"}}>
+            <Sel value={recipe.style} onChange={e=>upRecipe({style:e.target.value})}>
+              {STYLES.map(s=><option key={s}>{s}</option>)}
+            </Sel>
+          </div>
+          {(recipe.versions||[]).length>0&&(
+            <Btn onClick={()=>setShowVersions(true)} variant="ghost" sx={{fontSize:11,flexShrink:0}}>
+              ⏱ {recipe.versions.length} version{recipe.versions.length!==1?"s":""}
+            </Btn>
+          )}
+          {saveMsg&&<span style={{fontSize:11,color:C.green,fontFamily:mono,
+            padding:"4px 10px",border:`1px solid ${C.green}`,borderRadius:4}}>✓ {saveMsg}</span>}
+          {!cfg&&<span style={{fontSize:11,color:C.red,fontFamily:mono}}>
+            ⚠ Not connected to GitHub
+          </span>}
+        </div>
+      </div>
+
+      {/* ── Stats bar ── */}
+      <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr 1fr":"repeat(6,1fr)",
+        background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,
+        overflow:"hidden",marginBottom:gap}}>
+        {[{label:"OG",val:stats.og.toFixed(3)},{label:"FG",val:stats.fg.toFixed(3)},
+          {label:"ABV",val:stats.abv.toFixed(1)+"%"},{label:"IBU",val:stats.ibu.toFixed(0)},
+          {label:"SRM",val:stats.srm.toFixed(1),srm:true},{label:"BU:GU",val:stats.bgu.toFixed(2)}
+        ].map((s,i)=>(
+          <div key={s.label} style={{padding:mobile?"12px 4px":"14px 6px",textAlign:"center",
+            borderRight:mobile?(i%3<2?`1px solid ${C.border}`:"none"):(i<5?`1px solid ${C.border}`:"none"),
+            borderBottom:mobile&&i<3?`1px solid ${C.border}`:"none"}}>
+            <div style={{fontSize:9,color:C.muted,letterSpacing:"0.1em",
+              textTransform:"uppercase",marginBottom:5}}>{s.label}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+              {s.srm&&<div style={{width:9,height:9,borderRadius:"50%",background:srmHex,
+                flexShrink:0,boxShadow:`0 0 5px ${srmHex}`}}/>}
+              <span style={{fontSize:mobile?16:20,fontWeight:700,color:C.amber,fontFamily:mono}}>{s.val}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Batch Settings ── */}
+      <Card sx={{marginBottom:gap}}>
+        <SHead>Batch Settings</SHead>
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:10}}>
+          <div><Label>Batch Size (gal)</Label>
+            <Inp value={recipe.batchSize} step={0.25} onChange={v=>upRecipe({batchSize:v})}/></div>
+          <div><Label>Mash Efficiency (%)</Label>
+            <Inp value={recipe.efficiency} step={1} onChange={v=>upRecipe({efficiency:v})}/></div>
+          <div><Label>Total Grain (lbs)</Label><RO>{stats.lbs.toFixed(2)}</RO></div>
+          <div><Label>Pre-Boil OG (est)</Label><RO>{stats.preboilOG.toFixed(3)}</RO></div>
+        </div>
+      </Card>
+
+      {/* ── Grain Bill ── */}
+      <Card sx={{marginBottom:gap}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <SHead>Grain Bill</SHead>
+          <Btn onClick={addGrain} sx={{fontSize:11}}>+ Add Malt</Btn>
+        </div>
+        {!mobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 70px 50px 50px 44px",
+          gap:6,marginBottom:8}}>
+          {["Malt / Grain","Lbs","PPG","°L",""].map((h,i)=>(
+            <div key={i} style={{fontSize:9,color:C.faint,letterSpacing:"0.1em",
+              textTransform:"uppercase",textAlign:i>0?"center":"left"}}>{h}</div>
+          ))}
+        </div>}
+        {recipe.grains.map(g=>{
+          const pct=stats.lbs>0?(parseFloat(g.lbs)||0)/stats.lbs*100:0;
+          const pts=(parseFloat(g.lbs)||0)*g.ppg*((parseFloat(recipe.efficiency)||75)/100)/stats.bs;
+          return <div key={g.id} style={{marginBottom:10,paddingBottom:10,borderBottom:`1px solid ${C.border}`}}>
+            <div style={mobile?{display:"flex",gap:6,marginBottom:6}
+              :{display:"grid",gridTemplateColumns:"1fr 70px 50px 50px 44px",gap:6,alignItems:"center"}}>
+              <Sel value={g.name} onChange={e=>setGrainP(g.id,e.target.value)} sx={mobile?{flex:1}:{}}>
+                {MALTS.map(m=><option key={m.name}>{m.name}</option>)}
+              </Sel>
+              {!mobile&&<>
+                <Inp value={g.lbs} step={0.25} onChange={v=>upGrain(g.id,"lbs",v)} sx={{textAlign:"right"}}/>
+                <Inp value={g.ppg} step={1} onChange={v=>upGrain(g.id,"ppg",parseFloat(v)||0)} sx={{textAlign:"right"}}/>
+                <Inp value={g.color} step={1} onChange={v=>upGrain(g.id,"color",parseFloat(v)||0)} sx={{textAlign:"right"}}/>
+              </>}
+              <XBtn onClick={()=>removeGrain(g.id)}/>
+            </div>
+            {mobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:6}}>
+              <div><Label>Lbs</Label><Inp value={g.lbs} step={0.25} onChange={v=>upGrain(g.id,"lbs",v)}/></div>
+              <div><Label>PPG</Label><Inp value={g.ppg} step={1} onChange={v=>upGrain(g.id,"ppg",parseFloat(v)||0)}/></div>
+              <div><Label>°L</Label><Inp value={g.color} step={1} onChange={v=>upGrain(g.id,"color",parseFloat(v)||0)}/></div>
+            </div>}
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+              <div style={{flex:1,height:mobile?3:2,background:C.faint,borderRadius:2}}>
+                <div style={{height:"100%",width:`${pct}%`,background:C.amberDim,borderRadius:2,transition:"width 0.2s"}}/>
+              </div>
+              <span style={{fontSize:10,color:C.muted,whiteSpace:"nowrap"}}>
+                {pct.toFixed(0)}% · {pts.toFixed(1)} pts
+              </span>
+            </div>
+          </div>;
+        })}
+        {recipe.grains.length===0&&<div style={{textAlign:"center",color:C.faint,padding:"20px 0",fontSize:13}}>No grains added</div>}
+      </Card>
+
+      {/* ── Hop Schedule ── */}
+      <Card sx={{marginBottom:gap}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <SHead>Hop Schedule</SHead>
+          <Btn onClick={addHop} sx={{fontSize:11}}>+ Add Hop</Btn>
+        </div>
+        {!mobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 52px 50px 50px 88px 44px",
+          gap:6,marginBottom:8}}>
+          {["Variety","AA%","oz","Min","Type",""].map((h,i)=>(
+            <div key={i} style={{fontSize:9,color:C.faint,letterSpacing:"0.1em",
+              textTransform:"uppercase",textAlign:i>0?"center":"left"}}>{h}</div>
+          ))}
+        </div>}
+        {recipe.hops.map(h=>{
+          const isDH=h.type==="Dry Hop";
+          const mins=h.type==="Whirlpool"?15:(parseFloat(h.time)||0);
+          const hopIBU=isDH?0:tinsethIBU(parseFloat(h.aa)||0,parseFloat(h.oz)||0,mins,stats.ogPts,stats.bs);
+          return <div key={h.id} style={{marginBottom:10,paddingBottom:10,borderBottom:`1px solid ${C.border}`}}>
+            <div style={mobile?{display:"flex",gap:6,marginBottom:6}
+              :{display:"grid",gridTemplateColumns:"1fr 52px 50px 50px 88px 44px",gap:6,alignItems:"center"}}>
+              <Sel value={h.name} onChange={e=>setHopP(h.id,e.target.value)} sx={mobile?{flex:1}:{}}>
+                {HOPS.map(hp=><option key={hp.name}>{hp.name}</option>)}
+              </Sel>
+              {!mobile&&<>
+                <Inp value={h.aa} step={0.5} onChange={v=>upHop(h.id,"aa",v)} sx={{textAlign:"right"}}/>
+                <Inp value={h.oz} step={0.25} onChange={v=>upHop(h.id,"oz",v)} sx={{textAlign:"right"}}/>
+                <Inp value={h.time} step={5} disabled={isDH} onChange={v=>upHop(h.id,"time",v)} sx={{textAlign:"right"}}/>
+                <Sel value={h.type} onChange={e=>upHop(h.id,"type",e.target.value)}>
+                  {["Boil","Whirlpool","Dry Hop"].map(t=><option key={t}>{t}</option>)}
+                </Sel>
+              </>}
+              <XBtn onClick={()=>removeHop(h.id)}/>
+            </div>
+            {mobile&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1.3fr",gap:6,marginBottom:4}}>
+              <div><Label>AA%</Label><Inp value={h.aa} step={0.5} onChange={v=>upHop(h.id,"aa",v)}/></div>
+              <div><Label>oz</Label><Inp value={h.oz} step={0.25} onChange={v=>upHop(h.id,"oz",v)}/></div>
+              <div><Label>Min</Label><Inp value={h.time} step={5} disabled={isDH} onChange={v=>upHop(h.id,"time",v)}/></div>
+              <div><Label>Type</Label>
+                <Sel value={h.type} onChange={e=>upHop(h.id,"type",e.target.value)}>
+                  {["Boil","Whirlpool","Dry Hop"].map(t=><option key={t}>{t}</option>)}
+                </Sel>
+              </div>
+            </div>}
+            <div style={{fontSize:10,textAlign:"right",color:isDH?C.faint:C.muted,marginTop:mobile?0:3}}>
+              {isDH?"aroma only":`${hopIBU.toFixed(1)} IBU`}
+            </div>
+          </div>;
+        })}
+        {recipe.hops.length===0&&<div style={{textAlign:"center",color:C.faint,padding:"20px 0",fontSize:13}}>No hops added</div>}
+      </Card>
+
+      {/* ── Yeast ── */}
+      <Card sx={{marginBottom:gap}}>
+        <SHead>Yeast</SHead>
+        <div style={{marginBottom:10}}>
+          <Label>Strain</Label>
+          <Sel value={recipe.yeast.name}
+            onChange={e=>{const p=YEASTS.find(y=>y.name===e.target.value);if(p)upRecipe({yeast:p});}}>
+            {YEASTS.map(y=><option key={y.name}>{y.name}</option>)}
+          </Sel>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <div><Label>Attenuation (%)</Label>
+            <input type="number" value={recipe.yeast.atten} step={1}
+              onChange={e=>upRecipe({yeast:{...recipe.yeast,atten:parseInt(e.target.value)||0}})}
+              style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,color:C.cream,
+                padding:"10px",fontSize:15,fontFamily:mono,outline:"none",width:"100%",
+                boxSizing:"border-box",minHeight:44}}/></div>
+          <div><Label>Flocculation</Label><RO sx={{fontSize:13}}>{recipe.yeast.floc??"—"}</RO></div>
+          <div><Label>Temp Range</Label><RO sx={{fontSize:12}}>{recipe.yeast.temp??"—"}</RO></div>
+        </div>
+      </Card>
+
+      {/* ── Actuals ── */}
+      <Card sx={{marginBottom:gap,borderColor:`${C.green}33`}}>
+        <SHead>Brew Day Actuals</SHead>
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
+          <div><Label>Brew Date</Label>
+            <input type="date" value={recipe.actuals.brewDate}
+              onChange={e=>upActuals("brewDate",e.target.value)}
+              style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,color:C.cream,
+                padding:"10px",fontSize:14,fontFamily:mono,outline:"none",width:"100%",
+                boxSizing:"border-box",minHeight:44,colorScheme:"dark"}}/></div>
+          <div><Label>Pre-Boil Vol (gal)</Label>
+            <Inp value={recipe.actuals.preBoilVol} step={0.25} onChange={v=>upActuals("preBoilVol",v)}/></div>
+          <div><Label>Pre-Boil OG</Label>
+            <Inp value={recipe.actuals.preBoilOG} step={0.001} onChange={v=>upActuals("preBoilOG",v)}/></div>
+          <div><Label>Batch Vol into Fermenter</Label>
+            <Inp value={recipe.actuals.batchVol} step={0.25} onChange={v=>upActuals("batchVol",v)}/></div>
+          <div><Label>OG (measured)</Label>
+            <Inp value={recipe.actuals.og} step={0.001} onChange={v=>upActuals("og",v)}/></div>
+          <div><Label>FG (measured)</Label>
+            <Inp value={recipe.actuals.fg} step={0.001} onChange={v=>upActuals("fg",v)}/></div>
+          {actualStats.actualEff!==null&&(
+            <div><Label>Actual Efficiency</Label>
+              <RO sx={{color:C.green,fontWeight:700}}>{actualStats.actualEff.toFixed(1)}%</RO></div>)}
+          {actualStats.actualABV!==null&&(
+            <div><Label>Actual ABV</Label>
+              <RO sx={{color:C.green,fontWeight:700}}>{actualStats.actualABV.toFixed(2)}%</RO></div>)}
+        </div>
+
+        <div style={{fontSize:9,color:C.green,letterSpacing:"0.12em",textTransform:"uppercase",
+          fontWeight:700,marginBottom:10,fontFamily:mono,opacity:0.8}}>Target vs Actual</div>
+        <CompRow mobile={mobile} label="Pre-Boil OG" target={stats.preboilOG}
+          actual={recipe.actuals.preBoilOG} fmt={v=>v.toFixed(3)}/>
+        <CompRow mobile={mobile} label="OG" target={stats.og}
+          actual={recipe.actuals.og} fmt={v=>v.toFixed(3)}/>
+        <CompRow mobile={mobile} label="FG" target={stats.fg}
+          actual={recipe.actuals.fg} fmt={v=>v.toFixed(3)}/>
+        <CompRow mobile={mobile} label="ABV" target={stats.abv}
+          actual={actualStats.actualABV??""} fmt={v=>v.toFixed(2)} unit="%"/>
+        <CompRow mobile={mobile} label="Efficiency" target={parseFloat(recipe.efficiency)||75}
+          actual={actualStats.actualEff??""} fmt={v=>v.toFixed(1)} unit="%"/>
+        <CompRow mobile={mobile} label="Batch Volume" target={stats.bs}
+          actual={recipe.actuals.batchVol} fmt={v=>v.toFixed(2)} unit=" gal"/>
+
+        <div style={{marginTop:14}}>
+          <Label>Brew Day Notes</Label>
+          <textarea value={recipe.actuals.notes} onChange={e=>upActuals("notes",e.target.value)}
+            placeholder="Mash temp, water chemistry, yeast pitch temp, fermentation observations…"
+            style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,color:C.cream,
+              padding:"10px",fontSize:13,fontFamily:mono,outline:"none",width:"100%",
+              boxSizing:"border-box",height:80,resize:"vertical",lineHeight:1.55}}/>
+        </div>
+      </Card>
+
+      {/* ── Recipe Notes ── */}
+      <Card sx={{marginBottom:gap}}>
+        <SHead>Recipe Notes</SHead>
+        <textarea value={recipe.notes} onChange={e=>upRecipe({notes:e.target.value})}
+          placeholder="Grain mill gap, mash schedule, hop stand details, adjuncts…"
+          style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,color:C.cream,
+            padding:"10px",fontSize:13,fontFamily:mono,outline:"none",width:"100%",
+            boxSizing:"border-box",height:90,resize:"vertical",lineHeight:1.55}}/>
+      </Card>
+
+      {/* ── Color ── */}
+      <Card>
+        <SHead>Beer Color</SHead>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div style={{flexShrink:0,width:38,height:56,borderRadius:"3px 3px 6px 6px",
+            background:`linear-gradient(180deg,rgba(${srmRgb[0]},${srmRgb[1]},${srmRgb[2]},0.2) 0%,${srmHex} 100%)`,
+            border:"1.5px solid rgba(255,255,255,0.1)",
+            boxShadow:`0 0 14px rgba(${srmRgb[0]},${srmRgb[1]},${srmRgb[2]},0.4)`,overflow:"hidden"}}>
+            <div style={{height:10,background:"rgba(255,252,240,0.85)",
+              borderBottom:"1px solid rgba(255,252,240,0.3)"}}/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",height:18,borderRadius:3,overflow:"hidden",
+              border:`1px solid ${C.border}`,marginBottom:5}}>
+              {Array.from({length:40},(_,i)=>(
+                <div key={i} style={{flex:1,background:srmToHex(i+1)}}/>
+              ))}
+            </div>
+            <div style={{position:"relative",height:6,marginBottom:5}}>
+              <div style={{position:"absolute",left:`${Math.min((stats.srm/40)*100,99)}%`,
+                transform:"translateX(-50%)",width:2,height:6,background:C.cream,borderRadius:1}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.muted,fontFamily:mono}}>
+              <span>Pale Straw</span>
+              <span style={{color:C.amberLt,fontWeight:700}}>SRM {stats.srm.toFixed(1)}</span>
+              <span>Black</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <div style={{marginTop:16,textAlign:"center",fontSize:9,color:C.faint,
+        letterSpacing:"0.14em",fontFamily:mono}}>
+        IBU: TINSETH · SRM: MOREY · RECIPES → github/{cfg?.owner}/{cfg?.repo}
+      </div>
+
+      {/* ══ Modals ══════════════════════════════════════════════════════════ */}
+
+      {showSetup&&(
+        <SettingsModal onSave={handleSaveConfig}
+          onClose={cfg?()=>setShowSetup(false):null}
+          initial={cfg||{}}/>
+      )}
+
+      {showSave&&(
+        <Modal onClose={()=>setShowSave(false)} title="Save Version" width={400}>
+          <div style={{marginBottom:12}}>
+            <Label>Version Label (optional)</Label>
+            <TxtInp value={vLabel} onChange={setVLabel}
+              placeholder={`e.g. "Brew Day 1" or "Adjusted hop bill"`}/>
+          </div>
+          <div style={{fontSize:12,color:C.muted,fontFamily:mono,marginBottom:16,lineHeight:1.6}}>
+            Saves a named snapshot to GitHub. All grain, hop, yeast, and actuals data is included.
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <Btn onClick={()=>setShowSave(false)} variant="ghost">Cancel</Btn>
+            <Btn onClick={handleSaveVersion} variant="green">Save Snapshot</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {showVersions&&(
+        <Modal onClose={()=>setShowVersions(false)} title="Version History" width={500}>
+          {(recipe.versions||[]).length===0
+            ?<div style={{textAlign:"center",color:C.faint,padding:"20px 0",fontSize:13}}>No saved versions yet.</div>
+            :[...(recipe.versions||[])].reverse().map(v=>{
+              const s=calcStats(v.snapshot.grains,v.snapshot.hops,v.snapshot.yeast,
+                v.snapshot.batchSize,v.snapshot.efficiency);
+              return <div key={v.id} style={{padding:"12px 0",borderBottom:`1px solid ${C.border}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{fontFamily:serif,fontSize:15,color:C.cream,fontWeight:700,marginBottom:3}}>{v.label}</div>
+                    <div style={{fontSize:10,color:C.muted,fontFamily:mono}}>
+                      Saved {new Date(v.savedAt).toLocaleDateString("en-US",
+                        {month:"short",day:"numeric",year:"numeric",hour:"2-digit",minute:"2-digit"})}
+                    </div>
+                    {v.snapshot.actuals?.brewDate&&(
+                      <div style={{fontSize:10,color:C.green,fontFamily:mono,marginTop:2}}>
+                        Brewed {v.snapshot.actuals.brewDate}
+                      </div>
+                    )}
+                    <div style={{display:"flex",gap:14,marginTop:6,fontSize:11,color:C.muted,fontFamily:mono}}>
+                      <span>OG {s.og.toFixed(3)}</span><span>ABV {s.abv.toFixed(1)}%</span>
+                      <span>IBU {s.ibu.toFixed(0)}</span><span>SRM {s.srm.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <Btn onClick={()=>loadVersion(v)} variant="ghost" sx={{fontSize:11}}>Restore</Btn>
+                </div>
+              </div>;
+            })
+          }
+        </Modal>
+      )}
+
+      {showRecipes&&(
+        <Modal onClose={()=>setShowRecipes(false)} title="My Recipes" width={480}>
+          <div style={{marginBottom:14}}>
+            <Btn onClick={handleNewRecipe} variant="green"
+              sx={{width:"100%",display:"flex",justifyContent:"center",fontSize:13}}>
+              + New Recipe
+            </Btn>
+          </div>
+          {index.length===0
+            ?<div style={{textAlign:"center",color:C.faint,padding:"20px 0",fontSize:13}}>No recipes yet.</div>
+            :index.map(item=>(
+              <div key={item.id} onClick={()=>handleLoadRecipe(item.id)}
+                style={{padding:"12px",borderRadius:4,cursor:"pointer",marginBottom:4,
+                  border:`1px solid ${recipe.id===item.id?C.amberDim:C.border}`,
+                  background:recipe.id===item.id?C.amberGlow:C.elevated,
+                  display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontFamily:serif,fontSize:15,color:C.cream,fontWeight:700,marginBottom:2}}>
+                    {item.name}
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,fontFamily:mono}}>
+                    {item.style} · {new Date(item.updatedAt).toLocaleDateString("en-US",
+                      {month:"short",day:"numeric",year:"numeric"})}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {recipe.id===item.id&&<span style={{fontSize:9,color:C.amber,fontFamily:mono,
+                    letterSpacing:"0.1em",textTransform:"uppercase"}}>Active</span>}
+                  <button onClick={e=>handleDeleteRecipe(item.id,e)}
+                    style={{background:"transparent",border:"none",color:C.faint,
+                      cursor:"pointer",fontSize:16,lineHeight:1,padding:"4px 6px"}}
+                    onMouseEnter={e=>e.currentTarget.style.color=C.red}
+                    onMouseLeave={e=>e.currentTarget.style.color=C.faint}>×</button>
+                </div>
+              </div>
+            ))
+          }
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<BrewBuilder />);
+  </script>
+</body>
+</html>
