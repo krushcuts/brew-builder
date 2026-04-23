@@ -635,7 +635,7 @@
           <SHead>Grain Bill</SHead>
           <Btn onClick={addGrain} sx={{ fontSize: 11 }}>+ Add Malt</Btn>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 52px 52px 40px', gap: 6, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 96px 78px 78px 40px', gap: 6, marginBottom: 8 }}>
           {['Malt','Lbs','PPG','L',''].map((h,i) => (
             <div key={i} style={{ fontSize: 9, color: C.faint, letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: i>0?'center':'left' }}>{h}</div>
           ))}
@@ -645,13 +645,13 @@
           const pts = (parseFloat(g.lbs)||0)*g.ppg*((parseFloat(recipe.efficiency)||75)/100)/stats.bs;
           return (
             <div key={g.id} style={{ marginBottom: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 52px 52px 40px', gap: 6, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 96px 78px 78px 40px', gap: 6, alignItems: 'center' }}>
                 <Sel value={g.name} onChange={e => setGP(g.id, e.target.value)}>
                   {MALTS.map(m => <option key={m.name}>{m.name}</option>)}
                 </Sel>
-                <Inp value={g.lbs}   step={0.25} onChange={v => upGrain(g.id,'lbs',v)}                  sx={{ textAlign: 'right' }} />
-                <Inp value={g.ppg}   step={1}    onChange={v => upGrain(g.id,'ppg',parseFloat(v)||0)}   sx={{ textAlign: 'right' }} />
-                <Inp value={g.color} step={1}    onChange={v => upGrain(g.id,'color',parseFloat(v)||0)} sx={{ textAlign: 'right' }} />
+                <Inp value={g.lbs}   step={0.25} onChange={v => upGrain(g.id,'lbs',v)}                  sx={{ textAlign: 'right', padding: '9px 5px' }} />
+                <Inp value={g.ppg}   step={1}    onChange={v => upGrain(g.id,'ppg',parseFloat(v)||0)}   sx={{ textAlign: 'right', padding: '9px 5px' }} />
+                <Inp value={g.color} step={1}    onChange={v => upGrain(g.id,'color',parseFloat(v)||0)} sx={{ textAlign: 'right', padding: '9px 5px' }} />
                 <XBtn onClick={() => removeGrain(g.id)} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -673,7 +673,7 @@
           <SHead>Hop Schedule</SHead>
           <Btn onClick={addHop} sx={{ fontSize: 11 }}>+ Add Hop</Btn>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 54px 52px 52px 88px 40px', gap: 6, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 82px 82px 76px 100px 40px', gap: 6, marginBottom: 8 }}>
           {['Variety','AA%','oz','Min','Type',''].map((h,i) => (
             <div key={i} style={{ fontSize: 9, color: C.faint, letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: i>0?'center':'left' }}>{h}</div>
           ))}
@@ -684,13 +684,13 @@
           const ibu  = isDH?0:tinseth(parseFloat(h.aa)||0,parseFloat(h.oz)||0,mins,stats.ogPts,stats.bs);
           return (
             <div key={h.id} style={{ marginBottom: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 54px 52px 52px 88px 40px', gap: 6, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 82px 82px 76px 100px 40px', gap: 6, alignItems: 'center' }}>
                 <Sel value={h.name} onChange={e => setHP(h.id, e.target.value)}>
                   {HOPS.map(hp => <option key={hp.name}>{hp.name}</option>)}
                 </Sel>
-                <Inp value={h.aa}   step={0.5}  onChange={v => upHop(h.id,'aa',v)}   sx={{ textAlign: 'right' }} />
-                <Inp value={h.oz}   step={0.25} onChange={v => upHop(h.id,'oz',v)}   sx={{ textAlign: 'right' }} />
-                <Inp value={h.time} step={5}    disabled={isDH} onChange={v => upHop(h.id,'time',v)} sx={{ textAlign: 'right' }} />
+                <Inp value={h.aa}   step={0.5}  onChange={v => upHop(h.id,'aa',v)}   sx={{ textAlign: 'right', padding: '9px 5px' }} />
+                <Inp value={h.oz}   step={0.25} onChange={v => upHop(h.id,'oz',v)}   sx={{ textAlign: 'right', padding: '9px 5px' }} />
+                <Inp value={h.time} step={5}    disabled={isDH} onChange={v => upHop(h.id,'time',v)} sx={{ textAlign: 'right', padding: '9px 5px' }} />
                 <Sel value={h.type} onChange={e => upHop(h.id,'type',e.target.value)}>
                   {['Boil','Whirlpool','Dry Hop'].map(t => <option key={t}>{t}</option>)}
                 </Sel>
