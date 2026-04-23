@@ -6,10 +6,14 @@
   <title>Brew Builder</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
     body { background: #0c0b0a; }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { opacity: 1; }
     select option { background: #171511; color: #e8e0cf; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3a342c; border-radius: 2px; }
   </style>
 </head>
 <body>
@@ -24,84 +28,87 @@
       get: async (key) => { const v = localStorage.getItem(key); return v ? { key, value: v } : null; },
       set: async (key, value) => { localStorage.setItem(key, value); return { key, value }; },
       delete: async (key) => { localStorage.removeItem(key); return { key, deleted: true }; },
-      list: async (prefix = "") => ({ keys: Object.keys(localStorage).filter(k => k.startsWith(prefix)) }),
     };
 
+    // ─── Data ────────────────────────────────────────────────────────────────
+
     const MALTS = [
-      { name: "2-Row Pale",     ppg: 37, color: 1.8 },
-      { name: "Maris Otter",    ppg: 38, color: 3.0 },
-      { name: "Pilsner",        ppg: 37, color: 1.5 },
-      { name: "Vienna",         ppg: 36, color: 4.0 },
-      { name: "Munich Light",   ppg: 37, color: 10  },
-      { name: "Munich Dark",    ppg: 37, color: 20  },
-      { name: "Wheat Malt",     ppg: 38, color: 2.0 },
-      { name: "Rye Malt",       ppg: 37, color: 3.0 },
-      { name: "Flaked Wheat",   ppg: 35, color: 2.0 },
-      { name: "Flaked Oats",    ppg: 33, color: 1.0 },
-      { name: "Flaked Barley",  ppg: 32, color: 2.0 },
-      { name: "Cara-Pils",      ppg: 35, color: 2.0 },
-      { name: "Crystal 20L",    ppg: 35, color: 20  },
-      { name: "Crystal 40L",    ppg: 34, color: 40  },
-      { name: "Crystal 60L",    ppg: 34, color: 60  },
-      { name: "Crystal 80L",    ppg: 33, color: 80  },
-      { name: "Crystal 120L",   ppg: 33, color: 120 },
-      { name: "Aromatic",       ppg: 36, color: 26  },
-      { name: "Biscuit",        ppg: 35, color: 25  },
-      { name: "Honey Malt",     ppg: 37, color: 25  },
-      { name: "Special B",      ppg: 31, color: 180 },
-      { name: "Chocolate Malt", ppg: 28, color: 350 },
-      { name: "Roasted Barley", ppg: 25, color: 300 },
-      { name: "Black Patent",   ppg: 25, color: 500 },
-      { name: "Smoked Malt",    ppg: 37, color: 5.0 },
+      { name: '2-Row Pale',     ppg: 37, color: 1.8 },
+      { name: 'Maris Otter',    ppg: 38, color: 3.0 },
+      { name: 'Pilsner',        ppg: 37, color: 1.5 },
+      { name: 'Vienna',         ppg: 36, color: 4.0 },
+      { name: 'Munich Light',   ppg: 37, color: 10  },
+      { name: 'Munich Dark',    ppg: 37, color: 20  },
+      { name: 'Wheat Malt',     ppg: 38, color: 2.0 },
+      { name: 'Rye Malt',       ppg: 37, color: 3.0 },
+      { name: 'Flaked Wheat',   ppg: 35, color: 2.0 },
+      { name: 'Flaked Oats',    ppg: 33, color: 1.0 },
+      { name: 'Flaked Barley',  ppg: 32, color: 2.0 },
+      { name: 'Cara-Pils',      ppg: 35, color: 2.0 },
+      { name: 'Crystal 20L',    ppg: 35, color: 20  },
+      { name: 'Crystal 40L',    ppg: 34, color: 40  },
+      { name: 'Crystal 60L',    ppg: 34, color: 60  },
+      { name: 'Crystal 80L',    ppg: 33, color: 80  },
+      { name: 'Crystal 120L',   ppg: 33, color: 120 },
+      { name: 'Aromatic',       ppg: 36, color: 26  },
+      { name: 'Biscuit',        ppg: 35, color: 25  },
+      { name: 'Honey Malt',     ppg: 37, color: 25  },
+      { name: 'Special B',      ppg: 31, color: 180 },
+      { name: 'Chocolate Malt', ppg: 28, color: 350 },
+      { name: 'Roasted Barley', ppg: 25, color: 300 },
+      { name: 'Black Patent',   ppg: 25, color: 500 },
+      { name: 'Smoked Malt',    ppg: 37, color: 5.0 },
     ];
 
     const HOPS = [
-      { name: "Amarillo",             aa: 9.0  },
-      { name: "Azacca",               aa: 15.0 },
-      { name: "Cascade",              aa: 5.5  },
-      { name: "Centennial",           aa: 10.0 },
-      { name: "Chinook",              aa: 13.0 },
-      { name: "Citra",                aa: 12.0 },
-      { name: "Columbus (CTZ)",       aa: 15.0 },
-      { name: "El Dorado",            aa: 15.0 },
-      { name: "Fuggle",               aa: 4.5  },
-      { name: "Galaxy",               aa: 14.0 },
-      { name: "Hallertau Mittelfrueh",aa: 4.0  },
-      { name: "Magnum",               aa: 14.0 },
-      { name: "Mosaic",               aa: 12.5 },
-      { name: "Nugget",               aa: 13.0 },
-      { name: "Saaz",                 aa: 3.5  },
-      { name: "Simcoe",               aa: 13.0 },
-      { name: "Styrian Goldings",     aa: 5.5  },
-      { name: "Tettnang",             aa: 4.5  },
-      { name: "Warrior",              aa: 16.0 },
-      { name: "Willamette",           aa: 5.0  },
+      { name: 'Amarillo',              aa: 9.0  },
+      { name: 'Azacca',                aa: 15.0 },
+      { name: 'Cascade',               aa: 5.5  },
+      { name: 'Centennial',            aa: 10.0 },
+      { name: 'Chinook',               aa: 13.0 },
+      { name: 'Citra',                 aa: 12.0 },
+      { name: 'Columbus (CTZ)',        aa: 15.0 },
+      { name: 'El Dorado',             aa: 15.0 },
+      { name: 'Fuggle',                aa: 4.5  },
+      { name: 'Galaxy',                aa: 14.0 },
+      { name: 'Hallertau Mittelfrueh', aa: 4.0  },
+      { name: 'Magnum',                aa: 14.0 },
+      { name: 'Mosaic',                aa: 12.5 },
+      { name: 'Nugget',                aa: 13.0 },
+      { name: 'Saaz',                  aa: 3.5  },
+      { name: 'Simcoe',                aa: 13.0 },
+      { name: 'Styrian Goldings',      aa: 5.5  },
+      { name: 'Tettnang',              aa: 4.5  },
+      { name: 'Warrior',               aa: 16.0 },
+      { name: 'Willamette',            aa: 5.0  },
     ];
 
     const YEASTS = [
-      { name: "US-05 (American Ale)",    atten: 81, floc: "Medium",    temp: "59-75F" },
-      { name: "Nottingham",              atten: 77, floc: "High",       temp: "57-70F" },
-      { name: "S-33 (Belgian)",          atten: 72, floc: "Medium",    temp: "59-75F" },
-      { name: "BE-256 (Abbey)",          atten: 82, floc: "High",       temp: "59-77F" },
-      { name: "WY1056 American Ale",     atten: 75, floc: "Low-Med",   temp: "60-72F" },
-      { name: "WY1214 Belgian Abbey",    atten: 75, floc: "Med-High",  temp: "68-78F" },
-      { name: "WY1388 Belgian Strong",   atten: 78, floc: "Low",       temp: "65-85F" },
-      { name: "WY1968 London ESB",       atten: 67, floc: "Very High", temp: "64-72F" },
-      { name: "WY3522 Belgian Ardennes", atten: 78, floc: "Low",       temp: "65-85F" },
-      { name: "WY3787 Trappist HG",      atten: 78, floc: "Medium",    temp: "64-78F" },
-      { name: "WY2206 Bavarian Lager",   atten: 73, floc: "Medium",    temp: "46-56F" },
-      { name: "WLP001 California Ale",   atten: 74, floc: "Medium",    temp: "65-72F" },
-      { name: "WLP500 Trappist Ale",     atten: 78, floc: "Low-Med",   temp: "65-72F" },
-      { name: "W-34/70 Lager",           atten: 82, floc: "High",       temp: "48-72F" },
+      { name: 'US-05 (American Ale)',    atten: 81, floc: 'Medium',    temp: '59-75F' },
+      { name: 'Nottingham',              atten: 77, floc: 'High',       temp: '57-70F' },
+      { name: 'S-33 (Belgian)',          atten: 72, floc: 'Medium',    temp: '59-75F' },
+      { name: 'BE-256 (Abbey)',          atten: 82, floc: 'High',       temp: '59-77F' },
+      { name: 'WY1056 American Ale',     atten: 75, floc: 'Low-Med',   temp: '60-72F' },
+      { name: 'WY1214 Belgian Abbey',    atten: 75, floc: 'Med-High',  temp: '68-78F' },
+      { name: 'WY1388 Belgian Strong',   atten: 78, floc: 'Low',       temp: '65-85F' },
+      { name: 'WY1968 London ESB',       atten: 67, floc: 'Very High', temp: '64-72F' },
+      { name: 'WY3522 Belgian Ardennes', atten: 78, floc: 'Low',       temp: '65-85F' },
+      { name: 'WY3787 Trappist HG',      atten: 78, floc: 'Medium',    temp: '64-78F' },
+      { name: 'WY2206 Bavarian Lager',   atten: 73, floc: 'Medium',    temp: '46-56F' },
+      { name: 'WLP001 California Ale',   atten: 74, floc: 'Medium',    temp: '65-72F' },
+      { name: 'WLP500 Trappist Ale',     atten: 78, floc: 'Low-Med',   temp: '65-72F' },
+      { name: 'W-34/70 Lager',           atten: 82, floc: 'High',       temp: '48-72F' },
     ];
 
     const STYLES = [
-      "American Pale Ale","American IPA","Double IPA","West Coast IPA","Hazy IPA",
-      "American Amber","American Stout","Oatmeal Stout","Imperial Stout",
-      "Belgian Tripel","Belgian Dubbel","Belgian Golden Strong","Belgian Quad",
-      "Saison","Witbier","English Bitter","English Porter",
-      "Brown Ale","Hefeweizen","Dunkelweizen","Kolsch","Pilsner","Other",
+      'American Pale Ale','American IPA','Double IPA','West Coast IPA','Hazy IPA',
+      'American Amber','American Stout','Oatmeal Stout','Imperial Stout',
+      'Belgian Tripel','Belgian Dubbel','Belgian Golden Strong','Belgian Quad',
+      'Saison','Witbier','English Bitter','English Porter',
+      'Brown Ale','Hefeweizen','Dunkelweizen','Kolsch','Pilsner','Other',
     ];
+
+    // ─── Calculations ─────────────────────────────────────────────────────────
 
     function srmToRgb(srm) {
       const s = Math.min(Math.max(srm, 0), 40);
@@ -120,39 +127,44 @@
     }
     const srmHex = s => { const [r,g,b] = srmToRgb(s); return 'rgb(' + r + ',' + g + ',' + b + ')'; };
 
-    function tinsethIBU(aa, oz, mins, ogPts, bg) {
+    function tinseth(aa, oz, mins, ogPts, bg) {
       if (!oz || oz <= 0 || mins <= 0 || bg <= 0) return 0;
       const og = 1 + ogPts / 1000;
-      return 1.65 * Math.pow(0.000125, og - 1) * ((1 - Math.exp(-0.04 * mins)) / 4.15) * (aa / 100) * oz * 7489 / bg;
+      return 1.65 * Math.pow(0.000125, og-1) * ((1 - Math.exp(-0.04*mins)) / 4.15) * (aa/100) * oz * 7489 / bg;
     }
 
     function calcStats(grains, hops, yeast, batchSize, efficiency) {
       const bs = parseFloat(batchSize) || 5.5;
       const eff = parseFloat(efficiency) || 75;
-      const totalGrainPts = grains.reduce((s, g) => s + (parseFloat(g.lbs) || 0) * g.ppg, 0);
-      const ogPts = totalGrainPts * (eff / 100) / bs;
-      const og = 1 + ogPts / 1000;
-      const fg = 1 + (ogPts / 1000) * (1 - yeast.atten / 100);
+      const totalGrainPts = grains.reduce((s,g) => s + (parseFloat(g.lbs)||0) * g.ppg, 0);
+      const ogPts = totalGrainPts * (eff/100) / bs;
+      const og = 1 + ogPts/1000;
+      const fg = 1 + (ogPts/1000) * (1 - yeast.atten/100);
       const abv = (og - fg) * 131.25;
-      const mcu = grains.reduce((s, g) => s + (parseFloat(g.lbs) || 0) * g.color, 0) / bs;
+      const mcu = grains.reduce((s,g) => s + (parseFloat(g.lbs)||0) * g.color, 0) / bs;
       const srm = mcu > 0 ? 1.4922 * Math.pow(mcu, 0.6859) : 0;
-      const ibu = hops.filter(h => h.type === 'Boil' || h.type === 'Whirlpool')
-        .reduce((s, h) => s + tinsethIBU(parseFloat(h.aa) || 0, parseFloat(h.oz) || 0,
-          h.type === 'Whirlpool' ? 15 : (parseFloat(h.time) || 0), ogPts, bs), 0);
-      const lbs = grains.reduce((s, g) => s + (parseFloat(g.lbs) || 0), 0);
-      return { og, fg, abv, srm, ibu, bgu: og > 1 ? ibu / ((og - 1) * 1000) : 0,
-        lbs, ogPts, bs, preboilOG: 1 + (ogPts * bs) / ((bs + 1) * 1000), totalGrainPts };
+      const ibu = hops.filter(h => h.type==='Boil' || h.type==='Whirlpool')
+        .reduce((s,h) => s + tinseth(parseFloat(h.aa)||0, parseFloat(h.oz)||0,
+          h.type==='Whirlpool' ? 15 : (parseFloat(h.time)||0), ogPts, bs), 0);
+      const lbs = grains.reduce((s,g) => s + (parseFloat(g.lbs)||0), 0);
+      return { og, fg, abv, srm, ibu,
+        bgu: og > 1 ? ibu / ((og-1)*1000) : 0,
+        lbs, ogPts, bs,
+        preboilOG: 1 + (ogPts*bs) / ((bs+1)*1000),
+        totalGrainPts };
     }
+
+    // ─── GitHub ───────────────────────────────────────────────────────────────
 
     const GH = 'https://api.github.com';
     const ghH = pat => ({ Authorization: 'token ' + pat, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' });
     const b64e = s => btoa(unescape(encodeURIComponent(s)));
-    const b64d = s => decodeURIComponent(escape(atob(s.replace(/\s/g, ''))));
+    const b64d = s => decodeURIComponent(escape(atob(s.replace(/\s/g,''))));
 
     async function ghGet(cfg, path) {
-      const res = await fetch(GH + '/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + path, { headers: ghH(cfg.pat) });
+      const res = await fetch(GH+'/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+path, { headers: ghH(cfg.pat) });
       if (res.status === 404) return null;
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'GET ' + res.status); }
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'GET '+res.status); }
       const d = await res.json();
       return { content: JSON.parse(b64d(d.content)), sha: d.sha };
     }
@@ -160,44 +172,49 @@
     async function ghPut(cfg, path, content, sha, msg) {
       const body = { message: msg, content: b64e(JSON.stringify(content, null, 2)) };
       if (sha) body.sha = sha;
-      const res = await fetch(GH + '/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + path,
+      const res = await fetch(GH+'/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+path,
         { method: 'PUT', headers: ghH(cfg.pat), body: JSON.stringify(body) });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'PUT ' + res.status); }
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'PUT '+res.status); }
       return (await res.json()).content.sha;
     }
 
     async function ghDel(cfg, path, sha, msg) {
-      const res = await fetch(GH + '/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + path,
+      await fetch(GH+'/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+path,
         { method: 'DELETE', headers: ghH(cfg.pat), body: JSON.stringify({ message: msg, sha }) });
-      if (!res.ok && res.status !== 404) { const e = await res.json(); throw new Error(e.message); }
     }
 
     async function testConn(cfg) {
-      const res = await fetch(GH + '/repos/' + cfg.owner + '/' + cfg.repo, { headers: ghH(cfg.pat) });
+      const res = await fetch(GH+'/repos/'+cfg.owner+'/'+cfg.repo, { headers: ghH(cfg.pat) });
       if (!res.ok) throw new Error('Repo not found or token lacks access');
     }
 
     const CFG_KEY = 'brewbuilder-cfg';
     const loadCfg = async () => { try { const r = await window.storage.get(CFG_KEY); return r ? JSON.parse(r.value) : null; } catch { return null; } };
-    const saveCfg = async cfg => { try { await window.storage.set(CFG_KEY, JSON.stringify(cfg)); } catch {} };
+    const saveCfg = async c => { try { await window.storage.set(CFG_KEY, JSON.stringify(c)); } catch {} };
+
+    // ─── Utilities ────────────────────────────────────────────────────────────
 
     function useWidth() {
       const [w, setW] = useState(window.innerWidth);
-      useEffect(() => { const fn = () => setW(window.innerWidth); window.addEventListener('resize', fn); return () => window.removeEventListener('resize', fn); }, []);
+      useEffect(() => {
+        const fn = () => setW(window.innerWidth);
+        window.addEventListener('resize', fn);
+        return () => window.removeEventListener('resize', fn);
+      }, []);
       return w;
     }
 
     let _u = 1;
-    const uid = () => _u++;
-    const gid = () => Math.random().toString(36).slice(2, 10);
+    const uid  = () => _u++;
+    const gid  = () => Math.random().toString(36).slice(2,10);
 
     function blank(name) {
       return {
         id: gid(), name: name || 'New Recipe', style: 'American Pale Ale',
         batchSize: '5.5', efficiency: '75', notes: '',
         grains: [
-          { id: uid(), name: '2-Row Pale',  ppg: 37, color: 1.8, lbs: '10'   },
-          { id: uid(), name: 'Crystal 40L', ppg: 34, color: 40,  lbs: '0.75' },
+          { id: uid(), name: '2-Row Pale',   ppg: 37, color: 1.8, lbs: '10'   },
+          { id: uid(), name: 'Crystal 40L',  ppg: 34, color: 40,  lbs: '0.75' },
         ],
         hops: [
           { id: uid(), name: 'Cascade', aa: '5.5', oz: '1.0',  time: '60', type: 'Boil'    },
@@ -205,188 +222,487 @@
           { id: uid(), name: 'Cascade', aa: '5.5', oz: '0.5',  time: '0',  type: 'Dry Hop' },
         ],
         yeast: YEASTS[0],
-        actuals: { brewDate: '', preBoilVol: '', preBoilOG: '', og: '', fg: '', batchVol: '', notes: '' },
+        actuals: { brewDate:'', preBoilVol:'', preBoilOG:'', og:'', fg:'', batchVol:'', notes:'' },
         versions: [], createdAt: Date.now(), updatedAt: Date.now(),
       };
     }
 
+    // ─── Tokens ───────────────────────────────────────────────────────────────
+
     const C = {
-      bg: '#0c0b0a', surface: '#171511', elevated: '#201d18',
-      border: '#2a2620', borderLt: '#3a342c',
-      amber: '#c8870a', amberLt: '#e09c1a', amberDim: '#6b4a08', amberGlow: 'rgba(200,135,10,0.12)',
-      cream: '#e8e0cf', muted: '#7a7060', faint: '#3a3428',
-      red: '#a03025', green: '#2e7a3a', greenGlow: 'rgba(46,122,58,0.15)',
+      bg:'#0c0b0a', surface:'#171511', elevated:'#201d18',
+      border:'#2a2620', borderLt:'#3a342c',
+      amber:'#c8870a', amberLt:'#e09c1a', amberDim:'#6b4a08', amberGlow:'rgba(200,135,10,0.12)',
+      cream:'#e8e0cf', muted:'#7a7060', faint:'#3a3428',
+      red:'#a03025', green:'#2e7a3a', greenGlow:'rgba(46,122,58,0.15)',
     };
     const mono  = "'Courier Prime','Courier New',monospace";
     const serif = "'Playfair Display',Georgia,serif";
 
+    // ─── Primitives ───────────────────────────────────────────────────────────
+
     const Label = ({ children }) => (
-      <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4, fontFamily: mono }}>{children}</div>
+      <div style={{ fontSize:10, color:C.muted, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:4, fontFamily:mono }}>
+        {children}
+      </div>
     );
 
     const SHead = ({ children }) => (
-      <div style={{ fontSize: 10, color: C.amber, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700, fontFamily: mono, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.amber, display: 'inline-block', opacity: 0.7 }} />
+      <div style={{ fontSize:10, color:C.amber, letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:700, fontFamily:mono, marginBottom:12, display:'flex', alignItems:'center', gap:7 }}>
+        <span style={{ width:6, height:6, borderRadius:'50%', background:C.amber, display:'inline-block', opacity:0.7 }} />
         {children}
       </div>
     );
 
-    const Inp = ({ value, onChange, step = 1, min = 0, disabled, sx = {} }) => (
+    const Inp = ({ value, onChange, step=1, min=0, disabled, sx={} }) => (
       <input type="number" value={value} step={step} min={min} disabled={disabled}
         onChange={e => onChange(e.target.value)}
-        style={{ background: disabled ? C.elevated : C.bg, border: '1px solid ' + C.border, borderRadius: 4,
-          color: disabled ? C.muted : C.cream, padding: '10px', fontSize: 15, fontFamily: mono, outline: 'none',
-          width: '100%', boxSizing: 'border-box', opacity: disabled ? 0.45 : 1, WebkitAppearance: 'none', minHeight: 44, ...sx }} />
+        style={{ background:disabled?C.elevated:C.bg, border:'1px solid '+C.border, borderRadius:4,
+          color:disabled?C.muted:C.cream, padding:'9px 10px', fontSize:14, fontFamily:mono,
+          outline:'none', width:'100%', boxSizing:'border-box',
+          opacity:disabled?0.45:1, WebkitAppearance:'none', minHeight:40, ...sx }} />
     );
 
-    const Sel = ({ value, onChange, children, sx = {} }) => (
-      <div style={{ position: 'relative', ...sx }}>
+    const Sel = ({ value, onChange, children, sx={} }) => (
+      <div style={{ position:'relative', ...sx }}>
         <select value={value} onChange={onChange}
-          style={{ background: C.bg, border: '1px solid ' + C.border, borderRadius: 4, color: C.cream,
-            padding: '10px 28px 10px 10px', fontSize: 15, fontFamily: mono, outline: 'none', cursor: 'pointer',
-            width: '100%', boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', minHeight: 44 }}>
+          style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+            padding:'9px 28px 9px 10px', fontSize:14, fontFamily:mono, outline:'none', cursor:'pointer',
+            width:'100%', boxSizing:'border-box', appearance:'none', WebkitAppearance:'none', minHeight:40 }}>
           {children}
         </select>
-        <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: C.muted, pointerEvents: 'none', fontSize: 10 }}>v</span>
+        <span style={{ position:'absolute', right:9, top:'50%', transform:'translateY(-50%)', color:C.muted, pointerEvents:'none', fontSize:10 }}>v</span>
       </div>
     );
 
-    const TxtInp = ({ value, onChange, placeholder, type = 'text', sx = {} }) => (
+    const TxtInp = ({ value, onChange, placeholder, type='text', sx={} }) => (
       <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
-        style={{ background: C.bg, border: '1px solid ' + C.border, borderRadius: 4, color: C.cream,
-          padding: '10px', fontSize: 14, fontFamily: mono, outline: 'none', width: '100%', boxSizing: 'border-box', minHeight: 44, ...sx }} />
+        style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+          padding:'9px 10px', fontSize:14, fontFamily:mono, outline:'none',
+          width:'100%', boxSizing:'border-box', minHeight:40, ...sx }} />
     );
 
-    const RO = ({ children, sx = {} }) => (
-      <div style={{ background: C.elevated, border: '1px solid ' + C.border, borderRadius: 4, color: C.muted,
-        padding: '10px', fontSize: 14, fontFamily: mono, minHeight: 44, display: 'flex', alignItems: 'center', ...sx }}>
+    const RO = ({ children, sx={} }) => (
+      <div style={{ background:C.elevated, border:'1px solid '+C.border, borderRadius:4, color:C.muted,
+        padding:'9px 10px', fontSize:14, fontFamily:mono, minHeight:40,
+        display:'flex', alignItems:'center', ...sx }}>
         {children}
       </div>
     );
 
-    const Btn = ({ onClick, children, variant = 'amber', sx = {}, disabled = false }) => {
+    const Btn = ({ onClick, children, variant='amber', sx={}, disabled=false }) => {
       const vs = {
-        amber: { background: C.amberGlow, border: '1px solid ' + C.amberDim, color: C.amber },
-        green: { background: C.greenGlow, border: '1px solid ' + C.green, color: C.green },
-        ghost: { background: 'transparent', border: '1px solid ' + C.faint, color: C.muted },
-        danger: { background: 'transparent', border: '1px solid ' + C.red, color: C.red },
+        amber: { background:C.amberGlow, border:'1px solid '+C.amberDim, color:C.amber },
+        green: { background:C.greenGlow, border:'1px solid '+C.green,    color:C.green },
+        ghost: { background:'transparent', border:'1px solid '+C.faint,  color:C.muted },
+        danger:{ background:'transparent', border:'1px solid '+C.red,    color:C.red   },
       };
       return (
         <button onClick={onClick} disabled={disabled}
-          style={{ ...(vs[variant] || vs.amber), borderRadius: 4, padding: '8px 14px', fontSize: 12,
-            cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: mono, letterSpacing: '0.06em',
-            flexShrink: 0, minHeight: 36, opacity: disabled ? 0.5 : 1, ...sx }}>
+          style={{ ...(vs[variant]||vs.amber), borderRadius:4, padding:'7px 12px', fontSize:12,
+            cursor:disabled?'not-allowed':'pointer', fontFamily:mono, letterSpacing:'0.06em',
+            flexShrink:0, minHeight:34, opacity:disabled?0.5:1, ...sx }}>
           {children}
         </button>
       );
     };
 
     const XBtn = ({ onClick }) => (
-      <button onClick={onClick} style={{ background: 'transparent', border: '1px solid ' + C.faint, color: C.faint,
-        borderRadius: 4, cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: mono,
-        minWidth: 44, minHeight: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <button onClick={onClick}
+        style={{ background:'transparent', border:'1px solid '+C.faint, color:C.faint,
+          borderRadius:4, cursor:'pointer', fontSize:18, lineHeight:1, fontFamily:mono,
+          minWidth:40, minHeight:40, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
         x
       </button>
     );
 
-    const Card = ({ children, sx = {} }) => (
-      <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 6, padding: 14, ...sx }}>
+    const Card = ({ children, sx={} }) => (
+      <div style={{ background:C.surface, border:'1px solid '+C.border, borderRadius:6, padding:14, ...sx }}>
         {children}
       </div>
     );
 
-    const Modal = ({ onClose, title, children, width = 480 }) => (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+    const Modal = ({ onClose, title, children, width=480 }) => (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.82)', zIndex:200,
+        display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
         onClick={onClose}>
-        <div style={{ background: C.surface, border: '1px solid ' + C.borderLt, borderRadius: 8,
-          width: '100%', maxWidth: width, maxHeight: '88vh', overflowY: 'auto',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}
+        <div style={{ background:C.surface, border:'1px solid '+C.borderLt, borderRadius:8,
+          width:'100%', maxWidth:width, maxHeight:'88vh', overflowY:'auto',
+          boxShadow:'0 20px 60px rgba(0,0,0,0.7)' }}
           onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '14px 16px', borderBottom: '1px solid ' + C.border }}>
-            <div style={{ fontFamily: mono, fontSize: 11, color: C.amber, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700 }}>{title}</div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+            padding:'12px 16px', borderBottom:'1px solid '+C.border }}>
+            <div style={{ fontFamily:mono, fontSize:11, color:C.amber, letterSpacing:'0.14em', textTransform:'uppercase', fontWeight:700 }}>{title}</div>
             <XBtn onClick={onClose} />
           </div>
-          <div style={{ padding: 16 }}>{children}</div>
+          <div style={{ padding:16 }}>{children}</div>
         </div>
       </div>
     );
 
+    // ─── Sync badge ───────────────────────────────────────────────────────────
+
     const SyncBadge = ({ status, error, onRetry }) => {
-      const m = { idle: null, syncing: [C.amber, 'syncing...'], synced: [C.green, 'synced'], error: [C.red, 'sync error'] };
+      const m = { idle:null, syncing:[C.amber,'syncing...'], synced:[C.green,'synced'], error:[C.red,'error'] };
       const info = m[status];
       if (!info) return null;
       const [color, label] = info;
       return (
-        <span onClick={status === 'error' ? onRetry : undefined}
-          style={{ fontSize: 10, color, fontFamily: mono, cursor: status === 'error' ? 'pointer' : 'default',
-            padding: '3px 8px', border: '1px solid ' + color + '44', borderRadius: 4 }}>
-          {label}{status === 'error' && error ? ': ' + error.slice(0, 40) : ''}{status === 'error' ? ' (retry)' : ''}
+        <span onClick={status==='error'?onRetry:undefined}
+          style={{ fontSize:10, color, fontFamily:mono, cursor:status==='error'?'pointer':'default',
+            padding:'3px 8px', border:'1px solid '+color+'55', borderRadius:4, whiteSpace:'nowrap' }}>
+          {label}{status==='error'?' (retry)':''}
         </span>
       );
     };
 
-    const CompRow = ({ label, target, actual, fmt, unit = '', mobile }) => {
+    // ─── Stats display ────────────────────────────────────────────────────────
+
+    const StatBlock = ({ label, value, sub, color, dot }) => (
+      <div style={{ textAlign:'center', padding:'10px 4px' }}>
+        <div style={{ fontSize:9, color:C.muted, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:5 }}>{label}</div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+          {dot && <div style={{ width:10, height:10, borderRadius:'50%', background:dot, flexShrink:0, boxShadow:'0 0 6px '+dot }} />}
+          <span style={{ fontSize:22, fontWeight:700, color:color||C.amber, fontFamily:mono, lineHeight:1 }}>{value}</span>
+        </div>
+        {sub && <div style={{ fontSize:10, color:C.faint, marginTop:3, fontFamily:mono }}>{sub}</div>}
+      </div>
+    );
+
+    // ─── Delta comparison row ─────────────────────────────────────────────────
+
+    const CompRow = ({ label, target, actual, fmt, unit='' }) => {
       const hasA = actual !== '' && actual !== null && actual !== undefined;
-      const tVal = parseFloat(target) || 0, aVal = parseFloat(actual);
-      const d = hasA && !isNaN(aVal) ? aVal - tVal : null;
+      const tVal = parseFloat(target) || 0;
+      const aVal = parseFloat(actual);
+      const d    = hasA && !isNaN(aVal) ? aVal - tVal : null;
       const tStr = fmt ? fmt(tVal) : tVal.toFixed(3);
       const aStr = hasA && !isNaN(aVal) ? (fmt ? fmt(aVal) : aVal.toFixed(3)) : '--';
-      const dColor = d === null ? C.faint : Math.abs(d) < 0.0005 ? C.muted : d > 0 ? C.green : C.red;
-      const dStr = d === null ? '--' : (d > 0 ? '+' : '') + (fmt ? fmt(d) : d.toFixed(3));
+      const dColor = d===null ? C.faint : Math.abs(d)<0.0005 ? C.muted : d>0 ? C.green : C.red;
+      const dStr = d===null ? '--' : (d>0?'+':'') + (fmt ? fmt(d) : d.toFixed(3));
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr 1fr' : '160px 1fr 1fr 1fr',
-          gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid ' + C.border }}>
-          {mobile
-            ? <div style={{ fontSize: 10, color: C.muted, fontFamily: mono, letterSpacing: '0.06em', textTransform: 'uppercase', gridColumn: '1/-1', marginBottom: 2 }}>{label}</div>
-            : <div style={{ fontSize: 11, color: C.muted, fontFamily: mono, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</div>}
-          {[{ lbl: 'Target', val: tStr, c: C.amber }, { lbl: 'Actual', val: aStr, c: hasA ? C.cream : C.faint }, { lbl: 'Delta', val: dStr, c: dColor }].map(({ lbl, val, c }) => (
-            <div key={lbl} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: C.faint, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>{lbl}</div>
-              <div style={{ fontFamily: mono, fontSize: 16, color: c, fontWeight: 700 }}>
-                {val}<span style={{ fontSize: 10, color: C.muted }}>{val !== '--' ? unit : ''}</span>
-              </div>
-            </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:6,
+          padding:'7px 0', borderBottom:'1px solid '+C.border, alignItems:'center' }}>
+          <div style={{ fontSize:10, color:C.muted, fontFamily:mono, letterSpacing:'0.05em', textTransform:'uppercase' }}>{label}</div>
+          {[{ val:tStr+unit, c:C.amber }, { val:aStr+(hasA?unit:''), c:hasA?C.cream:C.faint }, { val:dStr+(d!==null?unit:''), c:dColor }].map((x,i) => (
+            <div key={i} style={{ textAlign:'center', fontFamily:mono, fontSize:14, fontWeight:700, color:x.c }}>{x.val}</div>
           ))}
         </div>
       );
     };
 
-    const SetupModal = ({ onSave, onClose, initial = {} }) => {
-      const [owner, setOwner] = useState(initial.owner || '');
-      const [repo,  setRepo]  = useState(initial.repo  || '');
+    const CompHeader = () => (
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:6, paddingBottom:6, borderBottom:'1px solid '+C.faint }}>
+        <div />
+        {['Target','Actual','Delta'].map(h => (
+          <div key={h} style={{ textAlign:'center', fontSize:9, color:C.faint, letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:mono }}>{h}</div>
+        ))}
+      </div>
+    );
+
+    // ─── Color preview ────────────────────────────────────────────────────────
+
+    const ColorPreview = ({ srm }) => {
+      const hex = srmHex(srm);
+      const rgb = srmToRgb(srm);
+      return (
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ flexShrink:0, width:36, height:52, borderRadius:'3px 3px 6px 6px',
+            background:'linear-gradient(180deg,rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.2) 0%,'+hex+' 100%)',
+            border:'1.5px solid rgba(255,255,255,0.1)',
+            boxShadow:'0 0 12px rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.4)', overflow:'hidden' }}>
+            <div style={{ height:9, background:'rgba(255,252,240,0.85)', borderBottom:'1px solid rgba(255,252,240,0.3)' }} />
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ display:'flex', height:16, borderRadius:3, overflow:'hidden', border:'1px solid '+C.border, marginBottom:4 }}>
+              {Array.from({ length:40 }, (_,i) => <div key={i} style={{ flex:1, background:srmHex(i+1) }} />)}
+            </div>
+            <div style={{ position:'relative', height:5, marginBottom:4 }}>
+              <div style={{ position:'absolute', left:Math.min((srm/40)*100,99)+'%',
+                transform:'translateX(-50%)', width:2, height:5, background:C.cream, borderRadius:1 }} />
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:C.muted, fontFamily:mono }}>
+              <span>Straw</span>
+              <span style={{ color:C.amberLt, fontWeight:700 }}>SRM {srm.toFixed(1)}</span>
+              <span>Black</span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ─── Setup modal ──────────────────────────────────────────────────────────
+
+    const SetupModal = ({ onSave, onClose, initial={} }) => {
+      const [owner, setOwner] = useState(initial.owner||'');
+      const [repo,  setRepo]  = useState(initial.repo||'');
       const [pat,   setPat]   = useState('');
       const [testing, setTesting] = useState(false);
       const [msg, setMsg] = useState('');
       const [ok,  setOk]  = useState(false);
-      const handleTest = async () => {
-        if (!owner || !repo || !pat) { setMsg('Fill in all fields first.'); return; }
+      const test = async () => {
+        if (!owner||!repo||!pat) { setMsg('Fill in all fields.'); return; }
         setTesting(true); setMsg(''); setOk(false);
         try { await testConn({ owner, repo, pat }); setMsg('Connected!'); setOk(true); }
-        catch (e) { setMsg('Error: ' + e.message); }
+        catch(e) { setMsg('Error: '+e.message); }
         setTesting(false);
       };
       return (
-        <Modal onClose={onClose} title="GitHub Sync Setup" width={460}>
-          <div style={{ fontSize: 12, color: C.muted, fontFamily: mono, lineHeight: 1.7, marginBottom: 16 }}>
-            Recipes saved as JSON files in your repo. Token stored in browser only.
+        <Modal onClose={onClose} title="GitHub Sync Setup" width={440}>
+          <div style={{ fontSize:12, color:C.muted, fontFamily:mono, lineHeight:1.7, marginBottom:16 }}>
+            Recipes are saved as JSON files in your GitHub repo.
+            Your token is stored in this browser only.
           </div>
-          <div style={{ marginBottom: 12 }}><Label>GitHub Username</Label><TxtInp value={owner} onChange={setOwner} placeholder="e.g. krushcuts" /></div>
-          <div style={{ marginBottom: 12 }}><Label>Repository Name</Label><TxtInp value={repo} onChange={setRepo} placeholder="e.g. brew-builder" /></div>
-          <div style={{ marginBottom: 16 }}><Label>Personal Access Token (Contents: read+write)</Label><TxtInp value={pat} onChange={setPat} type="password" placeholder="github_pat_..." /></div>
-          {msg && <div style={{ fontSize: 12, fontFamily: mono, marginBottom: 14, color: ok ? C.green : C.red, padding: '8px 10px', border: '1px solid ' + (ok ? C.green : C.red) + '44', borderRadius: 4 }}>{msg}</div>}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ marginBottom:10 }}><Label>GitHub Username</Label><TxtInp value={owner} onChange={setOwner} placeholder="e.g. krushcuts" /></div>
+          <div style={{ marginBottom:10 }}><Label>Repository Name</Label><TxtInp value={repo} onChange={setRepo} placeholder="e.g. brew-builder" /></div>
+          <div style={{ marginBottom:14 }}><Label>Personal Access Token (Contents: read+write)</Label><TxtInp value={pat} onChange={setPat} type="password" placeholder="github_pat_..." /></div>
+          {msg && <div style={{ fontSize:12, fontFamily:mono, marginBottom:12, color:ok?C.green:C.red, padding:'8px 10px', border:'1px solid '+(ok?C.green:C.red)+'44', borderRadius:4 }}>{msg}</div>}
+          <div style={{ display:'flex', gap:8, justifyContent:'flex-end', flexWrap:'wrap' }}>
             {onClose && <Btn onClick={onClose} variant="ghost">Cancel</Btn>}
-            <Btn onClick={handleTest} variant="ghost" disabled={testing}>{testing ? 'Testing...' : 'Test Connection'}</Btn>
+            <Btn onClick={test} variant="ghost" disabled={testing}>{testing?'Testing...':'Test Connection'}</Btn>
             <Btn onClick={() => onSave({ owner, repo, pat })} variant="green" disabled={!ok}>Save and Connect</Btn>
           </div>
         </Modal>
       );
     };
 
+    // ─── Grain section ────────────────────────────────────────────────────────
+
+    const GrainSection = ({ recipe, stats, upGrain, removeGrain, setGP, addGrain }) => (
+      <Card sx={{ marginBottom:12 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+          <SHead>Grain Bill</SHead>
+          <Btn onClick={addGrain} sx={{ fontSize:11 }}>+ Add Malt</Btn>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 64px 46px 46px 40px', gap:5, marginBottom:6 }}>
+          {['Malt','Lbs','PPG','L',''].map((h,i) => (
+            <div key={i} style={{ fontSize:9, color:C.faint, letterSpacing:'0.1em', textTransform:'uppercase', textAlign:i>0?'center':'left' }}>{h}</div>
+          ))}
+        </div>
+        {recipe.grains.map(g => {
+          const pct = stats.lbs > 0 ? (parseFloat(g.lbs)||0) / stats.lbs * 100 : 0;
+          const pts = (parseFloat(g.lbs)||0) * g.ppg * ((parseFloat(recipe.efficiency)||75)/100) / stats.bs;
+          return (
+            <div key={g.id} style={{ marginBottom:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 64px 46px 46px 40px', gap:5, alignItems:'center' }}>
+                <Sel value={g.name} onChange={e => setGP(g.id, e.target.value)}>
+                  {MALTS.map(m => <option key={m.name}>{m.name}</option>)}
+                </Sel>
+                <Inp value={g.lbs}   step={0.25} onChange={v => upGrain(g.id,'lbs',v)}   sx={{ textAlign:'right' }} />
+                <Inp value={g.ppg}   step={1}    onChange={v => upGrain(g.id,'ppg',parseFloat(v)||0)} sx={{ textAlign:'right' }} />
+                <Inp value={g.color} step={1}    onChange={v => upGrain(g.id,'color',parseFloat(v)||0)} sx={{ textAlign:'right' }} />
+                <XBtn onClick={() => removeGrain(g.id)} />
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:3 }}>
+                <div style={{ flex:1, height:2, background:C.faint, borderRadius:1 }}>
+                  <div style={{ height:'100%', width:pct+'%', background:C.amberDim, borderRadius:1, transition:'width 0.2s' }} />
+                </div>
+                <span style={{ fontSize:10, color:C.muted, whiteSpace:'nowrap' }}>{pct.toFixed(0)}% / {pts.toFixed(1)}pts</span>
+              </div>
+            </div>
+          );
+        })}
+        {recipe.grains.length === 0 && <div style={{ textAlign:'center', color:C.faint, padding:'16px 0', fontSize:13 }}>No grains added</div>}
+      </Card>
+    );
+
+    // ─── Hop section ──────────────────────────────────────────────────────────
+
+    const HopSection = ({ recipe, stats, upHop, removeHop, setHP, addHop }) => (
+      <Card sx={{ marginBottom:12 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+          <SHead>Hop Schedule</SHead>
+          <Btn onClick={addHop} sx={{ fontSize:11 }}>+ Add Hop</Btn>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 48px 46px 46px 82px 40px', gap:5, marginBottom:6 }}>
+          {['Variety','AA%','oz','Min','Type',''].map((h,i) => (
+            <div key={i} style={{ fontSize:9, color:C.faint, letterSpacing:'0.1em', textTransform:'uppercase', textAlign:i>0?'center':'left' }}>{h}</div>
+          ))}
+        </div>
+        {recipe.hops.map(h => {
+          const isDH = h.type === 'Dry Hop';
+          const mins = h.type === 'Whirlpool' ? 15 : (parseFloat(h.time)||0);
+          const ibu  = isDH ? 0 : tinseth(parseFloat(h.aa)||0, parseFloat(h.oz)||0, mins, stats.ogPts, stats.bs);
+          return (
+            <div key={h.id} style={{ marginBottom:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 48px 46px 46px 82px 40px', gap:5, alignItems:'center' }}>
+                <Sel value={h.name} onChange={e => setHP(h.id, e.target.value)}>
+                  {HOPS.map(hp => <option key={hp.name}>{hp.name}</option>)}
+                </Sel>
+                <Inp value={h.aa}   step={0.5}  onChange={v => upHop(h.id,'aa',v)}    sx={{ textAlign:'right' }} />
+                <Inp value={h.oz}   step={0.25} onChange={v => upHop(h.id,'oz',v)}    sx={{ textAlign:'right' }} />
+                <Inp value={h.time} step={5}    disabled={isDH} onChange={v => upHop(h.id,'time',v)} sx={{ textAlign:'right' }} />
+                <Sel value={h.type} onChange={e => upHop(h.id,'type',e.target.value)}>
+                  {['Boil','Whirlpool','Dry Hop'].map(t => <option key={t}>{t}</option>)}
+                </Sel>
+                <XBtn onClick={() => removeHop(h.id)} />
+              </div>
+              <div style={{ fontSize:10, textAlign:'right', color:isDH?C.faint:C.muted, marginTop:2 }}>
+                {isDH ? 'aroma only' : ibu.toFixed(1)+' IBU'}
+              </div>
+            </div>
+          );
+        })}
+        {recipe.hops.length === 0 && <div style={{ textAlign:'center', color:C.faint, padding:'16px 0', fontSize:13 }}>No hops added</div>}
+      </Card>
+    );
+
+    // ─── Yeast section ────────────────────────────────────────────────────────
+
+    const YeastSection = ({ recipe, up }) => (
+      <Card sx={{ marginBottom:12 }}>
+        <SHead>Yeast</SHead>
+        <div style={{ marginBottom:10 }}><Label>Strain</Label>
+          <Sel value={recipe.yeast.name} onChange={e => { const p = YEASTS.find(y => y.name===e.target.value); if(p) up({ yeast:p }); }}>
+            {YEASTS.map(y => <option key={y.name}>{y.name}</option>)}
+          </Sel>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+          <div><Label>Attenuation (%)</Label>
+            <input type="number" value={recipe.yeast.atten} step={1}
+              onChange={e => up({ yeast:{ ...recipe.yeast, atten:parseInt(e.target.value)||0 } })}
+              style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+                padding:'9px 10px', fontSize:14, fontFamily:mono, outline:'none', width:'100%', boxSizing:'border-box', minHeight:40 }} />
+          </div>
+          <div><Label>Flocculation</Label><RO sx={{ fontSize:13 }}>{recipe.yeast.floc||'--'}</RO></div>
+          <div><Label>Temp Range</Label><RO sx={{ fontSize:12 }}>{recipe.yeast.temp||'--'}</RO></div>
+        </div>
+      </Card>
+    );
+
+    // ─── Actuals inputs ───────────────────────────────────────────────────────
+
+    const ActualsInputs = ({ recipe, aStats, upA }) => (
+      <Card sx={{ borderColor:C.green+'33' }}>
+        <SHead>Brew Day Actuals</SHead>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:0 }}>
+          <div><Label>Brew Date</Label>
+            <input type="date" value={recipe.actuals.brewDate} onChange={e => upA('brewDate',e.target.value)}
+              style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+                padding:'9px 10px', fontSize:14, fontFamily:mono, outline:'none', width:'100%', boxSizing:'border-box', minHeight:40, colorScheme:'dark' }} />
+          </div>
+          <div><Label>Pre-Boil Vol (gal)</Label><Inp value={recipe.actuals.preBoilVol} step={0.25} onChange={v => upA('preBoilVol',v)} /></div>
+          <div><Label>Pre-Boil OG</Label><Inp value={recipe.actuals.preBoilOG} step={0.001} onChange={v => upA('preBoilOG',v)} /></div>
+          <div><Label>Batch Vol (fermenter)</Label><Inp value={recipe.actuals.batchVol} step={0.25} onChange={v => upA('batchVol',v)} /></div>
+          <div><Label>OG (measured)</Label><Inp value={recipe.actuals.og} step={0.001} onChange={v => upA('og',v)} /></div>
+          <div><Label>FG (measured)</Label><Inp value={recipe.actuals.fg} step={0.001} onChange={v => upA('fg',v)} /></div>
+          {aStats.eff !== null && <div><Label>Actual Efficiency</Label><RO sx={{ color:C.green, fontWeight:700 }}>{aStats.eff.toFixed(1)}%</RO></div>}
+          {aStats.abv !== null && <div><Label>Actual ABV</Label><RO sx={{ color:C.green, fontWeight:700 }}>{aStats.abv.toFixed(2)}%</RO></div>}
+        </div>
+        <div style={{ marginTop:10 }}><Label>Brew Day Notes</Label>
+          <textarea value={recipe.actuals.notes} onChange={e => upA('notes',e.target.value)}
+            placeholder="Mash temp, water chemistry, pitch temp, fermentation notes..."
+            style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+              padding:'9px 10px', fontSize:13, fontFamily:mono, outline:'none', width:'100%',
+              boxSizing:'border-box', height:80, resize:'vertical', lineHeight:1.55 }} />
+        </div>
+      </Card>
+    );
+
+    // ─── Delta table ──────────────────────────────────────────────────────────
+
+    const DeltaTable = ({ stats, recipe, aStats }) => (
+      <div>
+        <div style={{ fontSize:9, color:C.green, letterSpacing:'0.12em', textTransform:'uppercase',
+          fontWeight:700, marginBottom:8, fontFamily:mono, opacity:0.8 }}>Target vs Actual</div>
+        <CompHeader />
+        <CompRow label="Pre-Boil OG" target={stats.preboilOG}  actual={recipe.actuals.preBoilOG} fmt={v => v.toFixed(3)} />
+        <CompRow label="OG"          target={stats.og}          actual={recipe.actuals.og}        fmt={v => v.toFixed(3)} />
+        <CompRow label="FG"          target={stats.fg}          actual={recipe.actuals.fg}        fmt={v => v.toFixed(3)} />
+        <CompRow label="ABV"         target={stats.abv}         actual={aStats.abv!=null?aStats.abv:''} fmt={v => v.toFixed(2)} unit="%" />
+        <CompRow label="Efficiency"  target={parseFloat(recipe.efficiency)||75} actual={aStats.eff!=null?aStats.eff:''} fmt={v => v.toFixed(1)} unit="%" />
+        <CompRow label="Batch Vol"   target={stats.bs}          actual={recipe.actuals.batchVol}  fmt={v => v.toFixed(2)} unit=" gal" />
+      </div>
+    );
+
+    // ─── Right panel (desktop sticky) ────────────────────────────────────────
+
+    const RightPanel = ({ recipe, stats, aStats, upA, up }) => {
+      const sh = srmHex(stats.srm);
+      return (
+        <div>
+          {/* Big stats */}
+          <Card sx={{ marginBottom:10 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:0,
+              borderRadius:4, overflow:'hidden' }}>
+              {[
+                { l:'OG',  v:stats.og.toFixed(3)  },
+                { l:'FG',  v:stats.fg.toFixed(3)  },
+                { l:'ABV', v:stats.abv.toFixed(1)+'%' },
+                { l:'IBU', v:stats.ibu.toFixed(0) },
+                { l:'SRM', v:stats.srm.toFixed(1), dot:sh },
+                { l:'BU:GU', v:stats.bgu.toFixed(2) },
+              ].map((s,i) => (
+                <div key={s.l} style={{
+                  borderRight: i%3<2 ? '1px solid '+C.border : 'none',
+                  borderBottom: i<3 ? '1px solid '+C.border : 'none' }}>
+                  <StatBlock label={s.l} value={s.v} dot={s.dot} />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Batch settings */}
+          <Card sx={{ marginBottom:10 }}>
+            <SHead>Batch Settings</SHead>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div><Label>Batch Size (gal)</Label><Inp value={recipe.batchSize} step={0.25} onChange={v => up({ batchSize:v })} /></div>
+              <div><Label>Mash Efficiency (%)</Label><Inp value={recipe.efficiency} step={1} onChange={v => up({ efficiency:v })} /></div>
+              <div><Label>Total Grain (lbs)</Label><RO>{stats.lbs.toFixed(2)}</RO></div>
+              <div><Label>Pre-Boil OG (est)</Label><RO>{stats.preboilOG.toFixed(3)}</RO></div>
+            </div>
+          </Card>
+
+          {/* Color */}
+          <Card sx={{ marginBottom:10 }}>
+            <SHead>Beer Color</SHead>
+            <ColorPreview srm={stats.srm} />
+          </Card>
+
+          {/* Delta table */}
+          <Card sx={{ borderColor:C.green+'33' }}>
+            <DeltaTable stats={stats} recipe={recipe} aStats={aStats} />
+          </Card>
+        </div>
+      );
+    };
+
+    // ─── Mobile tab bar ───────────────────────────────────────────────────────
+
+    const TABS = [
+      { id:'recipe',   label:'Recipe'   },
+      { id:'stats',    label:'Stats'    },
+      { id:'brewday',  label:'Brew Day' },
+      { id:'notes',    label:'Notes'    },
+    ];
+
+    const TabBar = ({ active, onChange }) => (
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:100,
+        background:C.surface, borderTop:'1px solid '+C.border,
+        display:'flex', height:56 }}>
+        {TABS.map(t => {
+          const isActive = t.id === active;
+          return (
+            <button key={t.id} onClick={() => onChange(t.id)}
+              style={{ flex:1, background:'transparent', border:'none',
+                color: isActive ? C.amber : C.muted,
+                fontSize:11, fontFamily:mono, cursor:'pointer',
+                display:'flex', flexDirection:'column', alignItems:'center',
+                justifyContent:'center', gap:2,
+                borderTop: isActive ? '2px solid '+C.amber : '2px solid transparent',
+                letterSpacing:'0.06em', textTransform:'uppercase' }}>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+
+    // ─── Main App ─────────────────────────────────────────────────────────────
+
     function BrewBuilder() {
-      const width = useWidth(), mobile = width < 640;
+      const width  = useWidth();
+      const mobile = width < 640;
 
       useEffect(() => {
         const link = document.createElement('link');
@@ -396,25 +712,33 @@
         return () => { try { document.head.removeChild(link); } catch(e) {} };
       }, []);
 
-      const [cfg,        setCfg]        = useState(null);
-      const [syncSt,     setSyncSt]     = useState('idle');
-      const [syncErr,    setSyncErr]    = useState('');
-      const [showSetup,  setShowSetup]  = useState(false);
+      // GitHub + sync
+      const [cfg,      setCfg]      = useState(null);
+      const [syncSt,   setSyncSt]   = useState('idle');
+      const [syncErr,  setSyncErr]  = useState('');
+      const [showSetup,setShowSetup]= useState(false);
       const sha = useRef({});
 
-      const [recipe,     setRecipe]     = useState(blank('Cascade Pale Ale'));
-      const [index,      setIndex]      = useState([]);
-      const [loading,    setLoading]    = useState(true);
-      const [dirty,      setDirty]      = useState(false);
+      // Recipe state
+      const [recipe,   setRecipe]   = useState(blank('Cascade Pale Ale'));
+      const [index,    setIndex]    = useState([]);
+      const [loading,  setLoading]  = useState(true);
+      const [dirty,    setDirty]    = useState(false);
 
+      // UI
+      const [tab,        setTab]        = useState('recipe');
       const [showList,   setShowList]   = useState(false);
       const [showSave,   setShowSave]   = useState(false);
       const [showVer,    setShowVer]    = useState(false);
       const [vLabel,     setVLabel]     = useState('');
       const [saveMsg,    setSaveMsg]    = useState('');
 
-      useEffect(() => { loadCfg().then(c => { if (c) setCfg(c); else { setShowSetup(true); setLoading(false); } }); }, []);
+      // Load config
+      useEffect(() => {
+        loadCfg().then(c => { if (c) setCfg(c); else { setShowSetup(true); setLoading(false); } });
+      }, []);
 
+      // Load recipes from GitHub
       useEffect(() => {
         if (!cfg) return;
         setLoading(true);
@@ -424,8 +748,8 @@
             setIndex(res.content);
             if (res.content.length > 0) {
               const id = res.content[0].id;
-              ghGet(cfg, 'recipes/' + id + '.json').then(rr => {
-                if (rr) { sha.current['recipes/' + id + '.json'] = rr.sha; setRecipe(rr.content); }
+              ghGet(cfg, 'recipes/'+id+'.json').then(rr => {
+                if (rr) { sha.current['recipes/'+id+'.json'] = rr.sha; setRecipe(rr.content); }
                 setLoading(false);
               }).catch(() => setLoading(false));
             } else setLoading(false);
@@ -433,83 +757,98 @@
         }).catch(e => { setSyncErr(e.message); setSyncSt('error'); setLoading(false); });
       }, [cfg]);
 
+      // Write to GitHub
       const write = useCallback((r, idx) => {
         if (!cfg) return;
         setSyncSt('syncing');
-        const rp = 'recipes/' + r.id + '.json', ip = 'recipes/index.json';
-        ghPut(cfg, rp, r, sha.current[rp], 'Update: ' + r.name)
-          .then(s => { sha.current[rp] = s; return ghPut(cfg, ip, idx, sha.current[ip], 'Index: ' + r.name); })
+        const rp = 'recipes/'+r.id+'.json', ip = 'recipes/index.json';
+        ghPut(cfg, rp, r, sha.current[rp], 'Update: '+r.name)
+          .then(s => { sha.current[rp] = s; return ghPut(cfg, ip, idx, sha.current[ip], 'Index: '+r.name); })
           .then(s => { sha.current[ip] = s; setSyncSt('synced'); setSyncErr(''); setTimeout(() => setSyncSt('idle'), 3000); })
           .catch(e => { setSyncSt('error'); setSyncErr(e.message); });
       }, [cfg]);
 
+      // Auto-save debounce
       const pR = useRef(null), pI = useRef(null);
       useEffect(() => {
         if (!dirty || !cfg) return;
         pR.current = recipe;
-        const ni = index.some(x => x.id === recipe.id)
-          ? index.map(x => x.id === recipe.id ? { id: recipe.id, name: recipe.name, style: recipe.style, updatedAt: recipe.updatedAt } : x)
-          : [{ id: recipe.id, name: recipe.name, style: recipe.style, updatedAt: recipe.updatedAt }, ...index];
+        const ni = index.some(x => x.id===recipe.id)
+          ? index.map(x => x.id===recipe.id ? { id:recipe.id, name:recipe.name, style:recipe.style, updatedAt:recipe.updatedAt } : x)
+          : [{ id:recipe.id, name:recipe.name, style:recipe.style, updatedAt:recipe.updatedAt }, ...index];
         pI.current = ni;
-        const t = setTimeout(() => { if (pR.current) { setIndex(pI.current); write(pR.current, pI.current); setDirty(false); } }, 1500);
+        const t = setTimeout(() => {
+          if (pR.current) { setIndex(pI.current); write(pR.current, pI.current); setDirty(false); }
+        }, 1500);
         return () => clearTimeout(t);
       }, [dirty, recipe, cfg]);
 
-      const up = useCallback(patch => { setRecipe(r => ({ ...r, ...patch, updatedAt: Date.now() })); setDirty(true); }, []);
+      const up = useCallback(patch => {
+        setRecipe(r => ({ ...r, ...patch, updatedAt:Date.now() }));
+        setDirty(true);
+      }, []);
 
-      const stats = useMemo(() => calcStats(recipe.grains, recipe.hops, recipe.yeast, recipe.batchSize, recipe.efficiency),
+      // Stats
+      const stats = useMemo(() =>
+        calcStats(recipe.grains, recipe.hops, recipe.yeast, recipe.batchSize, recipe.efficiency),
         [recipe.grains, recipe.hops, recipe.yeast, recipe.batchSize, recipe.efficiency]);
 
       const aStats = useMemo(() => {
         const a = recipe.actuals;
-        const aOG = parseFloat(a.og) || null, aFG = parseFloat(a.fg) || null, aVol = parseFloat(a.batchVol) || null;
+        const aOG = parseFloat(a.og)||null, aFG = parseFloat(a.fg)||null, aVol = parseFloat(a.batchVol)||null;
         return {
-          abv: aOG && aFG ? (aOG - aFG) * 131.25 : null,
-          eff: aOG && aVol && stats.totalGrainPts > 0 ? (aOG - 1) * 1000 * aVol / stats.totalGrainPts * 100 : null,
+          abv: aOG && aFG ? (aOG-aFG)*131.25 : null,
+          eff: aOG && aVol && stats.totalGrainPts > 0 ? (aOG-1)*1000*aVol/stats.totalGrainPts*100 : null,
         };
       }, [recipe.actuals, stats.totalGrainPts]);
 
-      const addGrain    = () => up({ grains: [...recipe.grains, { id: uid(), name: '2-Row Pale', ppg: 37, color: 1.8, lbs: '1' }] });
-      const removeGrain = id => up({ grains: recipe.grains.filter(x => x.id !== id) });
-      const upGrain     = (id, f, v) => up({ grains: recipe.grains.map(x => x.id === id ? { ...x, [f]: v } : x) });
-      const setGP       = (id, name) => { const p = MALTS.find(m => m.name === name); if (p) up({ grains: recipe.grains.map(x => x.id === id ? { ...x, ...p } : x) }); };
+      // Grain ops
+      const addGrain    = () => up({ grains:[...recipe.grains, { id:uid(), name:'2-Row Pale', ppg:37, color:1.8, lbs:'1' }] });
+      const removeGrain = id => up({ grains:recipe.grains.filter(x => x.id!==id) });
+      const upGrain     = (id,f,v) => up({ grains:recipe.grains.map(x => x.id===id ? { ...x, [f]:v } : x) });
+      const setGP       = (id,name) => { const p = MALTS.find(m => m.name===name); if(p) up({ grains:recipe.grains.map(x => x.id===id ? { ...x, ...p } : x) }); };
 
-      const addHop    = () => up({ hops: [...recipe.hops, { id: uid(), name: 'Cascade', aa: '5.5', oz: '1.0', time: '60', type: 'Boil' }] });
-      const removeHop = id => up({ hops: recipe.hops.filter(x => x.id !== id) });
-      const upHop     = (id, f, v) => up({ hops: recipe.hops.map(x => x.id === id ? { ...x, [f]: v } : x) });
-      const setHP     = (id, name) => { const p = HOPS.find(h => h.name === name); if (p) up({ hops: recipe.hops.map(x => x.id === id ? { ...x, name: p.name, aa: String(p.aa) } : x) }); };
+      // Hop ops
+      const addHop    = () => up({ hops:[...recipe.hops, { id:uid(), name:'Cascade', aa:'5.5', oz:'1.0', time:'60', type:'Boil' }] });
+      const removeHop = id => up({ hops:recipe.hops.filter(x => x.id!==id) });
+      const upHop     = (id,f,v) => up({ hops:recipe.hops.map(x => x.id===id ? { ...x, [f]:v } : x) });
+      const setHP     = (id,name) => { const p = HOPS.find(h => h.name===name); if(p) up({ hops:recipe.hops.map(x => x.id===id ? { ...x, name:p.name, aa:String(p.aa) } : x) }); };
 
-      const upA = (f, v) => up({ actuals: { ...recipe.actuals, [f]: v } });
+      const upA = (f,v) => up({ actuals:{ ...recipe.actuals, [f]:v } });
 
+      // Version save
       const saveVersion = () => {
-        const n = (recipe.versions || []).length + 1;
-        const lbl = vLabel.trim() || 'Version ' + n;
-        const ver = { id: gid(), num: n, label: lbl, savedAt: Date.now(),
-          snapshot: { name: recipe.name, style: recipe.style, batchSize: recipe.batchSize,
-            efficiency: recipe.efficiency, notes: recipe.notes,
-            grains: JSON.parse(JSON.stringify(recipe.grains)),
-            hops: JSON.parse(JSON.stringify(recipe.hops)),
-            yeast: { ...recipe.yeast }, actuals: { ...recipe.actuals } } };
-        const upd = { ...recipe, versions: [...(recipe.versions || []), ver], updatedAt: Date.now() };
+        const n = (recipe.versions||[]).length + 1;
+        const lbl = vLabel.trim() || 'Version '+n;
+        const ver = { id:gid(), num:n, label:lbl, savedAt:Date.now(),
+          snapshot:{ name:recipe.name, style:recipe.style, batchSize:recipe.batchSize,
+            efficiency:recipe.efficiency, notes:recipe.notes,
+            grains:JSON.parse(JSON.stringify(recipe.grains)),
+            hops:JSON.parse(JSON.stringify(recipe.hops)),
+            yeast:{ ...recipe.yeast }, actuals:{ ...recipe.actuals } } };
+        const upd = { ...recipe, versions:[...(recipe.versions||[]), ver], updatedAt:Date.now() };
         setRecipe(upd); setVLabel(''); setShowSave(false);
-        setSaveMsg('Saved "' + lbl + '"'); setTimeout(() => setSaveMsg(''), 3000);
-        const ni = index.some(x => x.id === upd.id)
-          ? index.map(x => x.id === upd.id ? { id: upd.id, name: upd.name, style: upd.style, updatedAt: upd.updatedAt } : x)
-          : [{ id: upd.id, name: upd.name, style: upd.style, updatedAt: upd.updatedAt }, ...index];
+        setSaveMsg('Saved "'+lbl+'"'); setTimeout(() => setSaveMsg(''), 3000);
+        const ni = index.some(x => x.id===upd.id)
+          ? index.map(x => x.id===upd.id ? { id:upd.id, name:upd.name, style:upd.style, updatedAt:upd.updatedAt } : x)
+          : [{ id:upd.id, name:upd.name, style:upd.style, updatedAt:upd.updatedAt }, ...index];
         setIndex(ni); write(upd, ni);
       };
 
-      const loadVer = v => { setRecipe(r => ({ ...r, ...v.snapshot, versions: r.versions, id: r.id, createdAt: r.createdAt })); setShowVer(false); setDirty(true); };
+      const loadVer = v => {
+        setRecipe(r => ({ ...r, ...v.snapshot, versions:r.versions, id:r.id, createdAt:r.createdAt }));
+        setShowVer(false); setDirty(true);
+      };
 
       const newRecipe = () => {
         const r = blank(); setRecipe(r); setDirty(false); setShowList(false);
-        const ni = [{ id: r.id, name: r.name, style: r.style, updatedAt: r.updatedAt }, ...index];
+        const ni = [{ id:r.id, name:r.name, style:r.style, updatedAt:r.updatedAt }, ...index];
         setIndex(ni); write(r, ni);
       };
 
       const loadRecipe = id => {
         setShowList(false); setSyncSt('syncing');
-        const path = 'recipes/' + id + '.json';
+        const path = 'recipes/'+id+'.json';
         ghGet(cfg, path).then(res => {
           if (res) { sha.current[path] = res.sha; setRecipe(res.content); setDirty(false); }
           setSyncSt('synced'); setTimeout(() => setSyncSt('idle'), 2000);
@@ -518,326 +857,295 @@
 
       const delRecipe = (id, e) => {
         e.stopPropagation();
-        const path = 'recipes/' + id + '.json';
-        const ni = index.filter(x => x.id !== id);
+        const path = 'recipes/'+id+'.json';
+        const ni = index.filter(x => x.id!==id);
         setIndex(ni);
-        if (sha.current[path]) ghDel(cfg, path, sha.current[path], 'Delete ' + id)
+        if (sha.current[path]) ghDel(cfg, path, sha.current[path], 'Delete '+id)
           .then(() => ghPut(cfg, 'recipes/index.json', ni, sha.current['recipes/index.json'], 'Update index'))
           .catch(e => { setSyncSt('error'); setSyncErr(e.message); });
-        if (recipe.id === id) { if (ni.length > 0) loadRecipe(ni[0].id); else setRecipe(blank()); }
+        if (recipe.id===id) { if (ni.length>0) loadRecipe(ni[0].id); else setRecipe(blank()); }
       };
 
-      const saveCfgAndConnect = async nc => { await saveCfg(nc); setCfg(nc); setShowSetup(false); };
-
-      const sh = srmHex(stats.srm), sr = srmToRgb(stats.srm);
-      const gap = mobile ? 10 : 16, pad = mobile ? 12 : 20;
-
       if (loading && cfg) return (
-        <div style={{ background: C.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, color: C.muted, fontSize: 13 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 22, color: C.amber, marginBottom: 12 }}>...</div>
+        <div style={{ background:C.bg, minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:mono, color:C.muted, fontSize:13 }}>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:22, color:C.amber, marginBottom:12 }}>...</div>
             Loading from GitHub...
           </div>
         </div>
       );
 
-      return (
-        <div style={{ fontFamily: mono, background: C.bg, minHeight: '100vh', color: C.cream, padding: pad + 'px', boxSizing: 'border-box' }}>
-
-          <div style={{ marginBottom: gap + 4 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
-              <div style={{ fontSize: 9, color: C.amberDim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>HOMEBREW RECIPE BUILDER</div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <SyncBadge status={syncSt} error={syncErr} onRetry={() => write(recipe, index)} />
-                <Btn onClick={() => setShowSetup(true)} variant="ghost" sx={{ fontSize: 10, padding: '4px 8px', minHeight: 28 }}>GitHub</Btn>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10, flexWrap: 'wrap' }}>
-              <input value={recipe.name} onChange={e => up({ name: e.target.value })}
-                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid ' + C.borderLt,
-                  borderRadius: 0, color: C.cream, padding: '4px 0 6px', fontSize: mobile ? 22 : 28,
-                  flex: 1, minWidth: 0, fontFamily: serif, fontWeight: 700, outline: 'none' }} />
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <Btn onClick={() => setShowList(true)} variant="ghost" sx={{ fontSize: 11 }}>Recipes{index.length > 0 ? ' (' + index.length + ')' : ''}</Btn>
-                <Btn onClick={() => setShowSave(true)} variant="green" sx={{ fontSize: 11 }}>Save Version</Btn>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 180px' }}>
-                <Sel value={recipe.style} onChange={e => up({ style: e.target.value })}>
-                  {STYLES.map(s => <option key={s}>{s}</option>)}
-                </Sel>
-              </div>
-              {(recipe.versions || []).length > 0 && (
-                <Btn onClick={() => setShowVer(true)} variant="ghost" sx={{ fontSize: 11, flexShrink: 0 }}>
-                  {recipe.versions.length} version{recipe.versions.length !== 1 ? 's' : ''}
-                </Btn>
-              )}
-              {saveMsg && <span style={{ fontSize: 11, color: C.green, fontFamily: mono, padding: '4px 10px', border: '1px solid ' + C.green, borderRadius: 4 }}>{saveMsg}</span>}
-              {!cfg && <span style={{ fontSize: 11, color: C.red, fontFamily: mono }}>Not connected to GitHub</span>}
+      const headerH = (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6, flexWrap:'wrap', gap:6 }}>
+            <div style={{ fontSize:9, color:C.amberDim, letterSpacing:'0.2em', textTransform:'uppercase' }}>HOMEBREW RECIPE BUILDER</div>
+            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              <SyncBadge status={syncSt} error={syncErr} onRetry={() => write(recipe, index)} />
+              <Btn onClick={() => setShowSetup(true)} variant="ghost" sx={{ fontSize:10, padding:'4px 8px', minHeight:28 }}>GitHub</Btn>
             </div>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr 1fr' : 'repeat(6,1fr)',
-            background: C.surface, border: '1px solid ' + C.border, borderRadius: 6, overflow: 'hidden', marginBottom: gap }}>
-            {[{ l: 'OG', v: stats.og.toFixed(3) }, { l: 'FG', v: stats.fg.toFixed(3) },
-              { l: 'ABV', v: stats.abv.toFixed(1) + '%' }, { l: 'IBU', v: stats.ibu.toFixed(0) },
-              { l: 'SRM', v: stats.srm.toFixed(1), s: true }, { l: 'BU:GU', v: stats.bgu.toFixed(2) }
-            ].map((item, i) => (
-              <div key={item.l} style={{ padding: mobile ? '12px 4px' : '14px 6px', textAlign: 'center',
-                borderRight: mobile ? (i % 3 < 2 ? '1px solid ' + C.border : 'none') : (i < 5 ? '1px solid ' + C.border : 'none'),
-                borderBottom: mobile && i < 3 ? '1px solid ' + C.border : 'none' }}>
-                <div style={{ fontSize: 9, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 5 }}>{item.l}</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  {item.s && <div style={{ width: 9, height: 9, borderRadius: '50%', background: sh, flexShrink: 0, boxShadow: '0 0 5px ' + sh }} />}
-                  <span style={{ fontSize: mobile ? 16 : 20, fontWeight: 700, color: C.amber, fontFamily: mono }}>{item.v}</span>
-                </div>
-              </div>
-            ))}
+          <div style={{ display:'flex', gap:8, alignItems:'flex-end', marginBottom:8, flexWrap:'wrap' }}>
+            <input value={recipe.name} onChange={e => up({ name:e.target.value })}
+              style={{ background:'transparent', border:'none', borderBottom:'1px solid '+C.borderLt,
+                borderRadius:0, color:C.cream, padding:'4px 0 6px', fontSize:mobile?20:26,
+                flex:1, minWidth:0, fontFamily:serif, fontWeight:700, outline:'none' }} />
+            <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+              <Btn onClick={() => setShowList(true)} variant="ghost" sx={{ fontSize:11 }}>
+                Recipes{index.length>0?' ('+index.length+')':''}
+              </Btn>
+              <Btn onClick={() => setShowSave(true)} variant="green" sx={{ fontSize:11 }}>Save Version</Btn>
+            </div>
           </div>
-
-          <Card sx={{ marginBottom: gap }}>
-            <SHead>Batch Settings</SHead>
-            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: 10 }}>
-              <div><Label>Batch Size (gal)</Label><Inp value={recipe.batchSize} step={0.25} onChange={v => up({ batchSize: v })} /></div>
-              <div><Label>Mash Efficiency (%)</Label><Inp value={recipe.efficiency} step={1} onChange={v => up({ efficiency: v })} /></div>
-              <div><Label>Total Grain (lbs)</Label><RO>{stats.lbs.toFixed(2)}</RO></div>
-              <div><Label>Pre-Boil OG (est)</Label><RO>{stats.preboilOG.toFixed(3)}</RO></div>
-            </div>
-          </Card>
-
-          <Card sx={{ marginBottom: gap }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <SHead>Grain Bill</SHead>
-              <Btn onClick={addGrain} sx={{ fontSize: 11 }}>+ Add Malt</Btn>
-            </div>
-            {!mobile && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 50px 50px 44px', gap: 6, marginBottom: 8 }}>
-                {['Malt', 'Lbs', 'PPG', 'L', ''].map((h, i) => (
-                  <div key={i} style={{ fontSize: 9, color: C.faint, letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: i > 0 ? 'center' : 'left' }}>{h}</div>
-                ))}
-              </div>
-            )}
-            {recipe.grains.map(g => {
-              const pct = stats.lbs > 0 ? (parseFloat(g.lbs) || 0) / stats.lbs * 100 : 0;
-              const pts = (parseFloat(g.lbs) || 0) * g.ppg * ((parseFloat(recipe.efficiency) || 75) / 100) / stats.bs;
-              return (
-                <div key={g.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid ' + C.border }}>
-                  <div style={mobile ? { display: 'flex', gap: 6, marginBottom: 6 }
-                    : { display: 'grid', gridTemplateColumns: '1fr 70px 50px 50px 44px', gap: 6, alignItems: 'center' }}>
-                    <Sel value={g.name} onChange={e => setGP(g.id, e.target.value)} sx={mobile ? { flex: 1 } : {}}>
-                      {MALTS.map(m => <option key={m.name}>{m.name}</option>)}
-                    </Sel>
-                    {!mobile && <>
-                      <Inp value={g.lbs}   step={0.25} onChange={v => upGrain(g.id, 'lbs',   v)} sx={{ textAlign: 'right' }} />
-                      <Inp value={g.ppg}   step={1}    onChange={v => upGrain(g.id, 'ppg',   parseFloat(v) || 0)} sx={{ textAlign: 'right' }} />
-                      <Inp value={g.color} step={1}    onChange={v => upGrain(g.id, 'color', parseFloat(v) || 0)} sx={{ textAlign: 'right' }} />
-                    </>}
-                    <XBtn onClick={() => removeGrain(g.id)} />
-                  </div>
-                  {mobile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
-                      <div><Label>Lbs</Label><Inp value={g.lbs}   step={0.25} onChange={v => upGrain(g.id, 'lbs',   v)} /></div>
-                      <div><Label>PPG</Label><Inp value={g.ppg}   step={1}    onChange={v => upGrain(g.id, 'ppg',   parseFloat(v) || 0)} /></div>
-                      <div><Label>L</Label>  <Inp value={g.color} step={1}    onChange={v => upGrain(g.id, 'color', parseFloat(v) || 0)} /></div>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <div style={{ flex: 1, height: mobile ? 3 : 2, background: C.faint, borderRadius: 2 }}>
-                      <div style={{ height: '100%', width: pct + '%', background: C.amberDim, borderRadius: 2, transition: 'width 0.2s' }} />
-                    </div>
-                    <span style={{ fontSize: 10, color: C.muted, whiteSpace: 'nowrap' }}>{pct.toFixed(0)}% / {pts.toFixed(1)} pts</span>
-                  </div>
-                </div>
-              );
-            })}
-            {recipe.grains.length === 0 && <div style={{ textAlign: 'center', color: C.faint, padding: '20px 0', fontSize: 13 }}>No grains added</div>}
-          </Card>
-
-          <Card sx={{ marginBottom: gap }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <SHead>Hop Schedule</SHead>
-              <Btn onClick={addHop} sx={{ fontSize: 11 }}>+ Add Hop</Btn>
-            </div>
-            {!mobile && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 50px 50px 88px 44px', gap: 6, marginBottom: 8 }}>
-                {['Variety', 'AA%', 'oz', 'Min', 'Type', ''].map((h, i) => (
-                  <div key={i} style={{ fontSize: 9, color: C.faint, letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: i > 0 ? 'center' : 'left' }}>{h}</div>
-                ))}
-              </div>
-            )}
-            {recipe.hops.map(h => {
-              const isDH = h.type === 'Dry Hop';
-              const mins = h.type === 'Whirlpool' ? 15 : (parseFloat(h.time) || 0);
-              const ibu  = isDH ? 0 : tinsethIBU(parseFloat(h.aa) || 0, parseFloat(h.oz) || 0, mins, stats.ogPts, stats.bs);
-              return (
-                <div key={h.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid ' + C.border }}>
-                  <div style={mobile ? { display: 'flex', gap: 6, marginBottom: 6 }
-                    : { display: 'grid', gridTemplateColumns: '1fr 52px 50px 50px 88px 44px', gap: 6, alignItems: 'center' }}>
-                    <Sel value={h.name} onChange={e => setHP(h.id, e.target.value)} sx={mobile ? { flex: 1 } : {}}>
-                      {HOPS.map(hp => <option key={hp.name}>{hp.name}</option>)}
-                    </Sel>
-                    {!mobile && <>
-                      <Inp value={h.aa}   step={0.5}  onChange={v => upHop(h.id, 'aa',   v)} sx={{ textAlign: 'right' }} />
-                      <Inp value={h.oz}   step={0.25} onChange={v => upHop(h.id, 'oz',   v)} sx={{ textAlign: 'right' }} />
-                      <Inp value={h.time} step={5}    disabled={isDH} onChange={v => upHop(h.id, 'time', v)} sx={{ textAlign: 'right' }} />
-                      <Sel value={h.type} onChange={e => upHop(h.id, 'type', e.target.value)}>
-                        {['Boil', 'Whirlpool', 'Dry Hop'].map(t => <option key={t}>{t}</option>)}
-                      </Sel>
-                    </>}
-                    <XBtn onClick={() => removeHop(h.id)} />
-                  </div>
-                  {mobile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.3fr', gap: 6, marginBottom: 4 }}>
-                      <div><Label>AA%</Label><Inp value={h.aa} step={0.5} onChange={v => upHop(h.id, 'aa', v)} /></div>
-                      <div><Label>oz</Label> <Inp value={h.oz} step={0.25} onChange={v => upHop(h.id, 'oz', v)} /></div>
-                      <div><Label>Min</Label><Inp value={h.time} step={5} disabled={isDH} onChange={v => upHop(h.id, 'time', v)} /></div>
-                      <div><Label>Type</Label>
-                        <Sel value={h.type} onChange={e => upHop(h.id, 'type', e.target.value)}>
-                          {['Boil', 'Whirlpool', 'Dry Hop'].map(t => <option key={t}>{t}</option>)}
-                        </Sel>
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ fontSize: 10, textAlign: 'right', color: isDH ? C.faint : C.muted, marginTop: mobile ? 0 : 3 }}>
-                    {isDH ? 'aroma only' : ibu.toFixed(1) + ' IBU'}
-                  </div>
-                </div>
-              );
-            })}
-            {recipe.hops.length === 0 && <div style={{ textAlign: 'center', color: C.faint, padding: '20px 0', fontSize: 13 }}>No hops added</div>}
-          </Card>
-
-          <Card sx={{ marginBottom: gap }}>
-            <SHead>Yeast</SHead>
-            <div style={{ marginBottom: 10 }}><Label>Strain</Label>
-              <Sel value={recipe.yeast.name} onChange={e => { const p = YEASTS.find(y => y.name === e.target.value); if (p) up({ yeast: p }); }}>
-                {YEASTS.map(y => <option key={y.name}>{y.name}</option>)}
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+            <div style={{ flex:'1 1 200px' }}>
+              <Sel value={recipe.style} onChange={e => up({ style:e.target.value })}>
+                {STYLES.map(s => <option key={s}>{s}</option>)}
               </Sel>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div><Label>Attenuation (%)</Label>
-                <input type="number" value={recipe.yeast.atten} step={1}
-                  onChange={e => up({ yeast: { ...recipe.yeast, atten: parseInt(e.target.value) || 0 } })}
-                  style={{ background: C.bg, border: '1px solid ' + C.border, borderRadius: 4, color: C.cream,
-                    padding: '10px', fontSize: 15, fontFamily: mono, outline: 'none', width: '100%', boxSizing: 'border-box', minHeight: 44 }} /></div>
-              <div><Label>Flocculation</Label><RO sx={{ fontSize: 13 }}>{recipe.yeast.floc || '--'}</RO></div>
-              <div><Label>Temp Range</Label><RO sx={{ fontSize: 12 }}>{recipe.yeast.temp || '--'}</RO></div>
-            </div>
-          </Card>
-
-          <Card sx={{ marginBottom: gap, borderColor: C.green + '33' }}>
-            <SHead>Brew Day Actuals</SHead>
-            <div style={{ display: 'grid', gridTemplateColumns: mobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
-              <div><Label>Brew Date</Label>
-                <input type="date" value={recipe.actuals.brewDate} onChange={e => upA('brewDate', e.target.value)}
-                  style={{ background: C.bg, border: '1px solid ' + C.border, borderRadius: 4, color: C.cream,
-                    padding: '10px', fontSize: 14, fontFamily: mono, outline: 'none', width: '100%', boxSizing: 'border-box', minHeight: 44, colorScheme: 'dark' }} /></div>
-              <div><Label>Pre-Boil Vol (gal)</Label><Inp value={recipe.actuals.preBoilVol} step={0.25} onChange={v => upA('preBoilVol', v)} /></div>
-              <div><Label>Pre-Boil OG</Label><Inp value={recipe.actuals.preBoilOG} step={0.001} onChange={v => upA('preBoilOG', v)} /></div>
-              <div><Label>Batch Vol (fermenter)</Label><Inp value={recipe.actuals.batchVol} step={0.25} onChange={v => upA('batchVol', v)} /></div>
-              <div><Label>OG (measured)</Label><Inp value={recipe.actuals.og} step={0.001} onChange={v => upA('og', v)} /></div>
-              <div><Label>FG (measured)</Label><Inp value={recipe.actuals.fg} step={0.001} onChange={v => upA('fg', v)} /></div>
-              {aStats.eff !== null && <div><Label>Actual Efficiency</Label><RO sx={{ color: C.green, fontWeight: 700 }}>{aStats.eff.toFixed(1)}%</RO></div>}
-              {aStats.abv !== null && <div><Label>Actual ABV</Label><RO sx={{ color: C.green, fontWeight: 700 }}>{aStats.abv.toFixed(2)}%</RO></div>}
-            </div>
-            <div style={{ fontSize: 9, color: C.green, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10, fontFamily: mono, opacity: 0.8 }}>Target vs Actual</div>
-            <CompRow mobile={mobile} label="Pre-Boil OG" target={stats.preboilOG} actual={recipe.actuals.preBoilOG} fmt={v => v.toFixed(3)} />
-            <CompRow mobile={mobile} label="OG"          target={stats.og}        actual={recipe.actuals.og}       fmt={v => v.toFixed(3)} />
-            <CompRow mobile={mobile} label="FG"          target={stats.fg}        actual={recipe.actuals.fg}       fmt={v => v.toFixed(3)} />
-            <CompRow mobile={mobile} label="ABV"         target={stats.abv}       actual={aStats.abv != null ? aStats.abv : ''} fmt={v => v.toFixed(2)} unit="%" />
-            <CompRow mobile={mobile} label="Efficiency"  target={parseFloat(recipe.efficiency) || 75} actual={aStats.eff != null ? aStats.eff : ''} fmt={v => v.toFixed(1)} unit="%" />
-            <CompRow mobile={mobile} label="Batch Vol"   target={stats.bs}        actual={recipe.actuals.batchVol} fmt={v => v.toFixed(2)} unit=" gal" />
-            <div style={{ marginTop: 14 }}><Label>Brew Day Notes</Label>
-              <textarea value={recipe.actuals.notes} onChange={e => upA('notes', e.target.value)}
-                placeholder="Mash temp, water chemistry, pitch temp, fermentation notes..."
-                style={{ background: C.bg, border: '1px solid ' + C.border, borderRadius: 4, color: C.cream,
-                  padding: '10px', fontSize: 13, fontFamily: mono, outline: 'none', width: '100%',
-                  boxSizing: 'border-box', height: 80, resize: 'vertical', lineHeight: 1.55 }} />
-            </div>
-          </Card>
-
-          <Card sx={{ marginBottom: gap }}>
-            <SHead>Recipe Notes</SHead>
-            <textarea value={recipe.notes} onChange={e => up({ notes: e.target.value })}
-              placeholder="Grain mill gap, mash schedule, hop stand details, adjuncts..."
-              style={{ background: C.bg, border: '1px solid ' + C.border, borderRadius: 4, color: C.cream,
-                padding: '10px', fontSize: 13, fontFamily: mono, outline: 'none', width: '100%',
-                boxSizing: 'border-box', height: 90, resize: 'vertical', lineHeight: 1.55 }} />
-          </Card>
-
-          <Card>
-            <SHead>Beer Color</SHead>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ flexShrink: 0, width: 38, height: 56, borderRadius: '3px 3px 6px 6px',
-                background: 'linear-gradient(180deg,rgba(' + sr[0] + ',' + sr[1] + ',' + sr[2] + ',0.2) 0%,' + sh + ' 100%)',
-                border: '1.5px solid rgba(255,255,255,0.1)',
-                boxShadow: '0 0 14px rgba(' + sr[0] + ',' + sr[1] + ',' + sr[2] + ',0.4)', overflow: 'hidden' }}>
-                <div style={{ height: 10, background: 'rgba(255,252,240,0.85)', borderBottom: '1px solid rgba(255,252,240,0.3)' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', height: 18, borderRadius: 3, overflow: 'hidden', border: '1px solid ' + C.border, marginBottom: 5 }}>
-                  {Array.from({ length: 40 }, (_, i) => <div key={i} style={{ flex: 1, background: srmHex(i + 1) }} />)}
-                </div>
-                <div style={{ position: 'relative', height: 6, marginBottom: 5 }}>
-                  <div style={{ position: 'absolute', left: Math.min((stats.srm / 40) * 100, 99) + '%',
-                    transform: 'translateX(-50%)', width: 2, height: 6, background: C.cream, borderRadius: 1 }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.muted, fontFamily: mono }}>
-                  <span>Pale Straw</span>
-                  <span style={{ color: C.amberLt, fontWeight: 700 }}>SRM {stats.srm.toFixed(1)}</span>
-                  <span>Black</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <div style={{ marginTop: 16, textAlign: 'center', fontSize: 9, color: C.faint, letterSpacing: '0.14em', fontFamily: mono }}>
-            IBU: TINSETH / SRM: MOREY / RECIPES: github/{cfg ? cfg.owner + '/' + cfg.repo : 'not connected'}
+            {(recipe.versions||[]).length > 0 && (
+              <Btn onClick={() => setShowVer(true)} variant="ghost" sx={{ fontSize:11, flexShrink:0 }}>
+                {recipe.versions.length} version{recipe.versions.length!==1?'s':''}
+              </Btn>
+            )}
+            {saveMsg && <span style={{ fontSize:11, color:C.green, fontFamily:mono, padding:'4px 10px', border:'1px solid '+C.green, borderRadius:4 }}>{saveMsg}</span>}
           </div>
+        </div>
+      );
 
-          {showSetup && <SetupModal onSave={saveCfgAndConnect} onClose={cfg ? () => setShowSetup(false) : null} initial={cfg || {}} />}
+      // ── Desktop layout ──────────────────────────────────────────────────────
+      if (!mobile) {
+        return (
+          <div style={{ fontFamily:mono, background:C.bg, minHeight:'100vh', color:C.cream }}>
+            <div style={{ maxWidth:980, margin:'0 auto', padding:'20px 20px 40px' }}>
+              {headerH}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 380px', gap:16, alignItems:'start' }}>
+                {/* Left: recipe inputs */}
+                <div>
+                  <GrainSection recipe={recipe} stats={stats} upGrain={upGrain} removeGrain={removeGrain} setGP={setGP} addGrain={addGrain} />
+                  <HopSection   recipe={recipe} stats={stats} upHop={upHop}     removeHop={removeHop}     setHP={setHP}   addHop={addHop}   />
+                  <YeastSection recipe={recipe} up={up} />
+                  <div style={{ marginTop:12 }}>
+                    <ActualsInputs recipe={recipe} aStats={aStats} upA={upA} />
+                  </div>
+                  <Card sx={{ marginTop:12 }}>
+                    <SHead>Recipe Notes</SHead>
+                    <textarea value={recipe.notes} onChange={e => up({ notes:e.target.value })}
+                      placeholder="Grain mill gap, mash schedule, hop stand details, adjuncts..."
+                      style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+                        padding:'9px 10px', fontSize:13, fontFamily:mono, outline:'none', width:'100%',
+                        boxSizing:'border-box', height:90, resize:'vertical', lineHeight:1.55 }} />
+                  </Card>
+                </div>
+                {/* Right: sticky outputs */}
+                <div style={{ position:'sticky', top:20, maxHeight:'calc(100vh - 40px)', overflowY:'auto', paddingRight:2 }}>
+                  <RightPanel recipe={recipe} stats={stats} aStats={aStats} upA={upA} up={up} />
+                  <div style={{ marginTop:10, textAlign:'center', fontSize:9, color:C.faint, letterSpacing:'0.12em', fontFamily:mono }}>
+                    IBU: TINSETH / SRM: MOREY
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            {/* Modals */}
+            {showSetup && <SetupModal onSave={async nc => { await saveCfg(nc); setCfg(nc); setShowSetup(false); }} onClose={cfg?()=>setShowSetup(false):null} initial={cfg||{}} />}
+            {showSave && (
+              <Modal onClose={() => setShowSave(false)} title="Save Version" width={400}>
+                <div style={{ marginBottom:10 }}><Label>Version Label (optional)</Label><TxtInp value={vLabel} onChange={setVLabel} placeholder='e.g. "Brew Day 1"' /></div>
+                <div style={{ fontSize:12, color:C.muted, fontFamily:mono, marginBottom:14, lineHeight:1.6 }}>Saves a full snapshot of the recipe and actuals to GitHub.</div>
+                <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                  <Btn onClick={() => setShowSave(false)} variant="ghost">Cancel</Btn>
+                  <Btn onClick={saveVersion} variant="green">Save Snapshot</Btn>
+                </div>
+              </Modal>
+            )}
+            {showVer && (
+              <Modal onClose={() => setShowVer(false)} title="Version History" width={500}>
+                {(recipe.versions||[]).length === 0
+                  ? <div style={{ textAlign:'center', color:C.faint, padding:'20px 0', fontSize:13 }}>No saved versions yet.</div>
+                  : (recipe.versions||[]).slice().reverse().map(v => {
+                      const s = calcStats(v.snapshot.grains,v.snapshot.hops,v.snapshot.yeast,v.snapshot.batchSize,v.snapshot.efficiency);
+                      return (
+                        <div key={v.id} style={{ padding:'12px 0', borderBottom:'1px solid '+C.border }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                            <div>
+                              <div style={{ fontFamily:serif, fontSize:15, color:C.cream, fontWeight:700, marginBottom:3 }}>{v.label}</div>
+                              <div style={{ fontSize:10, color:C.muted, fontFamily:mono }}>
+                                {new Date(v.savedAt).toLocaleDateString('en-US',{ month:'short', day:'numeric', year:'numeric' })}
+                              </div>
+                              {v.snapshot.actuals && v.snapshot.actuals.brewDate && (
+                                <div style={{ fontSize:10, color:C.green, fontFamily:mono, marginTop:2 }}>Brewed {v.snapshot.actuals.brewDate}</div>
+                              )}
+                              <div style={{ display:'flex', gap:12, marginTop:5, fontSize:11, color:C.muted, fontFamily:mono }}>
+                                <span>OG {s.og.toFixed(3)}</span><span>ABV {s.abv.toFixed(1)}%</span>
+                                <span>IBU {s.ibu.toFixed(0)}</span><span>SRM {s.srm.toFixed(1)}</span>
+                              </div>
+                            </div>
+                            <Btn onClick={() => loadVer(v)} variant="ghost" sx={{ fontSize:11 }}>Restore</Btn>
+                          </div>
+                        </div>
+                      );
+                    })
+                }
+              </Modal>
+            )}
+            {showList && (
+              <Modal onClose={() => setShowList(false)} title="My Recipes" width={480}>
+                <div style={{ marginBottom:12 }}>
+                  <Btn onClick={newRecipe} variant="green" sx={{ width:'100%', display:'flex', justifyContent:'center', fontSize:13 }}>+ New Recipe</Btn>
+                </div>
+                {index.length === 0
+                  ? <div style={{ textAlign:'center', color:C.faint, padding:'20px 0', fontSize:13 }}>No recipes yet.</div>
+                  : index.map(item => (
+                      <div key={item.id} onClick={() => loadRecipe(item.id)}
+                        style={{ padding:'12px', borderRadius:4, cursor:'pointer', marginBottom:4,
+                          border:'1px solid '+(recipe.id===item.id?C.amberDim:C.border),
+                          background:recipe.id===item.id?C.amberGlow:C.elevated,
+                          display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <div style={{ fontFamily:serif, fontSize:15, color:C.cream, fontWeight:700, marginBottom:2 }}>{item.name}</div>
+                          <div style={{ fontSize:11, color:C.muted, fontFamily:mono }}>
+                            {item.style} / {new Date(item.updatedAt).toLocaleDateString('en-US',{ month:'short', day:'numeric', year:'numeric' })}
+                          </div>
+                        </div>
+                        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                          {recipe.id===item.id && <span style={{ fontSize:9, color:C.amber, fontFamily:mono, letterSpacing:'0.1em', textTransform:'uppercase' }}>Active</span>}
+                          <button onClick={e => delRecipe(item.id,e)}
+                            style={{ background:'transparent', border:'none', color:C.faint, cursor:'pointer', fontSize:16, lineHeight:1, padding:'4px 6px' }}
+                            onMouseEnter={e => e.currentTarget.style.color=C.red}
+                            onMouseLeave={e => e.currentTarget.style.color=C.faint}>x</button>
+                        </div>
+                      </div>
+                    ))
+                }
+              </Modal>
+            )}
+          </div>
+        );
+      }
+
+      // ── Mobile layout (tabbed) ──────────────────────────────────────────────
+      const sh = srmHex(stats.srm);
+      return (
+        <div style={{ fontFamily:mono, background:C.bg, minHeight:'100vh', color:C.cream,
+          padding:'12px 12px 68px', boxSizing:'border-box' }}>
+
+          {headerH}
+
+          {/* Recipe tab */}
+          {tab === 'recipe' && (
+            <div>
+              <GrainSection recipe={recipe} stats={stats} upGrain={upGrain} removeGrain={removeGrain} setGP={setGP} addGrain={addGrain} />
+              <HopSection   recipe={recipe} stats={stats} upHop={upHop}     removeHop={removeHop}     setHP={setHP}   addHop={addHop}   />
+              <YeastSection recipe={recipe} up={up} />
+            </div>
+          )}
+
+          {/* Stats tab */}
+          {tab === 'stats' && (
+            <div>
+              <Card sx={{ marginBottom:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', borderRadius:4, overflow:'hidden' }}>
+                  {[
+                    { l:'OG',    v:stats.og.toFixed(3) },
+                    { l:'FG',    v:stats.fg.toFixed(3) },
+                    { l:'ABV',   v:stats.abv.toFixed(1)+'%' },
+                    { l:'IBU',   v:stats.ibu.toFixed(0) },
+                    { l:'SRM',   v:stats.srm.toFixed(1), dot:sh },
+                    { l:'BU:GU', v:stats.bgu.toFixed(2) },
+                  ].map((s,i) => (
+                    <div key={s.l} style={{
+                      borderRight:i%3<2?'1px solid '+C.border:'none',
+                      borderBottom:i<3?'1px solid '+C.border:'none' }}>
+                      <StatBlock label={s.l} value={s.v} dot={s.dot} />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+              <Card sx={{ marginBottom:12 }}>
+                <SHead>Batch Settings</SHead>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <div><Label>Batch Size (gal)</Label><Inp value={recipe.batchSize} step={0.25} onChange={v => up({ batchSize:v })} /></div>
+                  <div><Label>Mash Efficiency (%)</Label><Inp value={recipe.efficiency} step={1} onChange={v => up({ efficiency:v })} /></div>
+                  <div><Label>Total Grain (lbs)</Label><RO>{stats.lbs.toFixed(2)}</RO></div>
+                  <div><Label>Pre-Boil OG (est)</Label><RO>{stats.preboilOG.toFixed(3)}</RO></div>
+                </div>
+              </Card>
+              <Card>
+                <SHead>Beer Color</SHead>
+                <ColorPreview srm={stats.srm} />
+              </Card>
+            </div>
+          )}
+
+          {/* Brew Day tab */}
+          {tab === 'brewday' && (
+            <div>
+              <ActualsInputs recipe={recipe} aStats={aStats} upA={upA} />
+              <Card sx={{ marginTop:12, borderColor:C.green+'33' }}>
+                <DeltaTable stats={stats} recipe={recipe} aStats={aStats} />
+              </Card>
+            </div>
+          )}
+
+          {/* Notes tab */}
+          {tab === 'notes' && (
+            <div>
+              <Card sx={{ marginBottom:12 }}>
+                <SHead>Recipe Notes</SHead>
+                <textarea value={recipe.notes} onChange={e => up({ notes:e.target.value })}
+                  placeholder="Grain mill gap, mash schedule, hop stand details, adjuncts..."
+                  style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+                    padding:'9px 10px', fontSize:13, fontFamily:mono, outline:'none', width:'100%',
+                    boxSizing:'border-box', height:140, resize:'vertical', lineHeight:1.55 }} />
+              </Card>
+              <Card>
+                <SHead>Brew Day Notes</SHead>
+                <textarea value={recipe.actuals.notes} onChange={e => upA('notes',e.target.value)}
+                  placeholder="Mash temp, water chemistry, pitch temp, fermentation observations..."
+                  style={{ background:C.bg, border:'1px solid '+C.border, borderRadius:4, color:C.cream,
+                    padding:'9px 10px', fontSize:13, fontFamily:mono, outline:'none', width:'100%',
+                    boxSizing:'border-box', height:140, resize:'vertical', lineHeight:1.55 }} />
+              </Card>
+            </div>
+          )}
+
+          <TabBar active={tab} onChange={setTab} />
+
+          {/* Modals */}
+          {showSetup && <SetupModal onSave={async nc => { await saveCfg(nc); setCfg(nc); setShowSetup(false); }} onClose={cfg?()=>setShowSetup(false):null} initial={cfg||{}} />}
           {showSave && (
             <Modal onClose={() => setShowSave(false)} title="Save Version" width={400}>
-              <div style={{ marginBottom: 12 }}><Label>Version Label (optional)</Label>
-                <TxtInp value={vLabel} onChange={setVLabel} placeholder='e.g. "Brew Day 1"' />
-              </div>
-              <div style={{ fontSize: 12, color: C.muted, fontFamily: mono, marginBottom: 16, lineHeight: 1.6 }}>
-                Saves a named snapshot to GitHub with all grain, hop, yeast, and actuals data.
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <div style={{ marginBottom:10 }}><Label>Version Label (optional)</Label><TxtInp value={vLabel} onChange={setVLabel} placeholder='e.g. "Brew Day 1"' /></div>
+              <div style={{ fontSize:12, color:C.muted, fontFamily:mono, marginBottom:14, lineHeight:1.6 }}>Saves a full snapshot to GitHub.</div>
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
                 <Btn onClick={() => setShowSave(false)} variant="ghost">Cancel</Btn>
                 <Btn onClick={saveVersion} variant="green">Save Snapshot</Btn>
               </div>
             </Modal>
           )}
-
           {showVer && (
             <Modal onClose={() => setShowVer(false)} title="Version History" width={500}>
-              {(recipe.versions || []).length === 0
-                ? <div style={{ textAlign: 'center', color: C.faint, padding: '20px 0', fontSize: 13 }}>No saved versions yet.</div>
-                : (recipe.versions || []).slice().reverse().map(v => {
-                    const s = calcStats(v.snapshot.grains, v.snapshot.hops, v.snapshot.yeast, v.snapshot.batchSize, v.snapshot.efficiency);
+              {(recipe.versions||[]).length === 0
+                ? <div style={{ textAlign:'center', color:C.faint, padding:'20px 0', fontSize:13 }}>No saved versions yet.</div>
+                : (recipe.versions||[]).slice().reverse().map(v => {
+                    const s = calcStats(v.snapshot.grains,v.snapshot.hops,v.snapshot.yeast,v.snapshot.batchSize,v.snapshot.efficiency);
                     return (
-                      <div key={v.id} style={{ padding: '12px 0', borderBottom: '1px solid ' + C.border }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div key={v.id} style={{ padding:'12px 0', borderBottom:'1px solid '+C.border }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                           <div>
-                            <div style={{ fontFamily: serif, fontSize: 15, color: C.cream, fontWeight: 700, marginBottom: 3 }}>{v.label}</div>
-                            <div style={{ fontSize: 10, color: C.muted, fontFamily: mono }}>
-                              Saved {new Date(v.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <div style={{ fontFamily:serif, fontSize:15, color:C.cream, fontWeight:700, marginBottom:3 }}>{v.label}</div>
+                            <div style={{ fontSize:10, color:C.muted, fontFamily:mono }}>
+                              {new Date(v.savedAt).toLocaleDateString('en-US',{ month:'short', day:'numeric', year:'numeric' })}
                             </div>
                             {v.snapshot.actuals && v.snapshot.actuals.brewDate && (
-                              <div style={{ fontSize: 10, color: C.green, fontFamily: mono, marginTop: 2 }}>Brewed {v.snapshot.actuals.brewDate}</div>
+                              <div style={{ fontSize:10, color:C.green, fontFamily:mono, marginTop:2 }}>Brewed {v.snapshot.actuals.brewDate}</div>
                             )}
-                            <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 11, color: C.muted, fontFamily: mono }}>
-                              <span>OG {s.og.toFixed(3)}</span>
-                              <span>ABV {s.abv.toFixed(1)}%</span>
-                              <span>IBU {s.ibu.toFixed(0)}</span>
-                              <span>SRM {s.srm.toFixed(1)}</span>
+                            <div style={{ display:'flex', gap:12, marginTop:5, fontSize:11, color:C.muted, fontFamily:mono }}>
+                              <span>OG {s.og.toFixed(3)}</span><span>ABV {s.abv.toFixed(1)}%</span>
+                              <span>IBU {s.ibu.toFixed(0)}</span><span>SRM {s.srm.toFixed(1)}</span>
                             </div>
                           </div>
-                          <Btn onClick={() => loadVer(v)} variant="ghost" sx={{ fontSize: 11 }}>Restore</Btn>
+                          <Btn onClick={() => loadVer(v)} variant="ghost" sx={{ fontSize:11 }}>Restore</Btn>
                         </div>
                       </div>
                     );
@@ -845,36 +1153,31 @@
               }
             </Modal>
           )}
-
           {showList && (
             <Modal onClose={() => setShowList(false)} title="My Recipes" width={480}>
-              <div style={{ marginBottom: 14 }}>
-                <Btn onClick={newRecipe} variant="green" sx={{ width: '100%', display: 'flex', justifyContent: 'center', fontSize: 13 }}>
-                  + New Recipe
-                </Btn>
+              <div style={{ marginBottom:12 }}>
+                <Btn onClick={newRecipe} variant="green" sx={{ width:'100%', display:'flex', justifyContent:'center', fontSize:13 }}>+ New Recipe</Btn>
               </div>
               {index.length === 0
-                ? <div style={{ textAlign: 'center', color: C.faint, padding: '20px 0', fontSize: 13 }}>No recipes yet.</div>
+                ? <div style={{ textAlign:'center', color:C.faint, padding:'20px 0', fontSize:13 }}>No recipes yet.</div>
                 : index.map(item => (
                     <div key={item.id} onClick={() => loadRecipe(item.id)}
-                      style={{ padding: '12px', borderRadius: 4, cursor: 'pointer', marginBottom: 4,
-                        border: '1px solid ' + (recipe.id === item.id ? C.amberDim : C.border),
-                        background: recipe.id === item.id ? C.amberGlow : C.elevated,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      style={{ padding:'12px', borderRadius:4, cursor:'pointer', marginBottom:4,
+                        border:'1px solid '+(recipe.id===item.id?C.amberDim:C.border),
+                        background:recipe.id===item.id?C.amberGlow:C.elevated,
+                        display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <div>
-                        <div style={{ fontFamily: serif, fontSize: 15, color: C.cream, fontWeight: 700, marginBottom: 2 }}>{item.name}</div>
-                        <div style={{ fontSize: 11, color: C.muted, fontFamily: mono }}>
-                          {item.style} / {new Date(item.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        <div style={{ fontFamily:serif, fontSize:15, color:C.cream, fontWeight:700, marginBottom:2 }}>{item.name}</div>
+                        <div style={{ fontSize:11, color:C.muted, fontFamily:mono }}>
+                          {item.style} / {new Date(item.updatedAt).toLocaleDateString('en-US',{ month:'short', day:'numeric', year:'numeric' })}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        {recipe.id === item.id && <span style={{ fontSize: 9, color: C.amber, fontFamily: mono, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Active</span>}
-                        <button onClick={e => delRecipe(item.id, e)}
-                          style={{ background: 'transparent', border: 'none', color: C.faint, cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px 6px' }}
-                          onMouseEnter={e => e.currentTarget.style.color = C.red}
-                          onMouseLeave={e => e.currentTarget.style.color = C.faint}>
-                          x
-                        </button>
+                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        {recipe.id===item.id && <span style={{ fontSize:9, color:C.amber, fontFamily:mono, letterSpacing:'0.1em', textTransform:'uppercase' }}>Active</span>}
+                        <button onClick={e => delRecipe(item.id,e)}
+                          style={{ background:'transparent', border:'none', color:C.faint, cursor:'pointer', fontSize:16, lineHeight:1, padding:'4px 6px' }}
+                          onMouseEnter={e => e.currentTarget.style.color=C.red}
+                          onMouseLeave={e => e.currentTarget.style.color=C.faint}>x</button>
                       </div>
                     </div>
                   ))
