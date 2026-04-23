@@ -257,19 +257,31 @@
 
     async function ghPutFile(cfg, path, content, sha, msg) {
       const body = { message: msg, content: b64e(JSON.stringify(content, null, 2)) };
-      if (sha) body.sha = sha;
+      // Only include sha if it's a non-empty string — omitting it signals a new file creation
+      if (sha && typeof sha === 'string' && sha.length > 0) body.sha = sha;
       const res = await fetch(`${GH}/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
         { method: 'PUT', headers: ghH(cfg.pat), body: JSON.stringify(body) });
+      // SHA conflict — re-fetch current SHA and retry once
       if (res.status === 409 || res.status === 422) {
         const fresh = await ghGetRaw(cfg, path);
         const body2 = { message: msg, content: b64e(JSON.stringify(content, null, 2)) };
-        if (fresh) body2.sha = fresh.sha;
+        if (fresh?.sha) body2.sha = fresh.sha;
         const res2 = await fetch(`${GH}/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
           { method: 'PUT', headers: ghH(cfg.pat), body: JSON.stringify(body2) });
-        if (!res2.ok) { const e = await res2.json(); throw new Error(e.message || `PUT retry ${res2.status}`); }
+        if (!res2.ok) {
+          const e = await res2.json();
+          throw new Error(e.message || `PUT retry ${res2.status}`);
+        }
         return (await res2.json()).content.sha;
       }
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message || `PUT ${res.status}`); }
+      if (!res.ok) {
+        const e = await res.json();
+        const detail = res.status === 401 ? 'Bad token — check your PAT in GitHub settings'
+          : res.status === 403 ? 'No write access — set Contents: Read and write on your token'
+          : res.status === 404 ? 'Repo not found — check owner and repo name'
+          : (e.message || `HTTP ${res.status}`);
+        throw new Error(detail);
+      }
       return (await res.json()).content.sha;
     }
 
@@ -492,20 +504,22 @@
 
     // ─── Sync badge ───────────────────────────────────────────────────────────
 
-    const SyncBadge = ({ status, onRetry }) => {
+    const SyncBadge = ({ status, error, onRetry }) => {
       if (status === 'idle') return null;
       const m = {
         syncing: { color: C.muted,  label: 'saving...' },
-        synced:  { color: C.green,  label: 'saved' },
-        error:   { color: C.red,    label: 'save failed — retry?' },
+        synced:  { color: C.green,  label: 'saved to GitHub' },
+        error:   { color: C.red,    label: 'save failed' },
       };
       const info = m[status] || m.syncing;
       return (
-        <span onClick={status==='error'?onRetry:undefined}
+        <span title={error||''} onClick={status==='error'?onRetry:undefined}
           style={{ fontSize: 11, color: info.color, fontFamily: mono,
             cursor: status==='error'?'pointer':'default',
-            padding: '3px 9px', border: `1px solid ${info.color}55`, borderRadius: 4 }}>
-          {info.label}
+            padding: '3px 9px', border: `1px solid ${info.color}55`, borderRadius: 4,
+            maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            display: 'inline-block' }}>
+          {info.label}{status==='error' && error ? `: ${error.slice(0,50)}` : ''}{status==='error' ? ' — retry?' : ''}
         </span>
       );
     };
@@ -596,28 +610,66 @@
     // ─── Setup modal ──────────────────────────────────────────────────────────
 
     const SetupModal = ({ onSave, onClose, initial={} }) => {
-      const [owner, setOwner] = useState(initial.owner||'');
-      const [repo,  setRepo]  = useState(initial.repo||'');
-      const [pat,   setPat]   = useState('');
+      const hasSaved = !!(initial.owner && initial.repo && initial.pat);
+      const [owner,   setOwner]   = useState(initial.owner||'');
+      const [repo,    setRepo]    = useState(initial.repo||'');
+      // Pre-populate PAT so user doesn't have to re-enter it on every visit
+      const [pat,     setPat]     = useState(initial.pat||'');
       const [testing, setTesting] = useState(false);
-      const [msg, setMsg] = useState('');
-      const [ok,  setOk]  = useState(false);
+      const [msg,     setMsg]     = useState(hasSaved ? '✓ Config loaded from browser storage' : '');
+      const [msgOk,   setMsgOk]   = useState(hasSaved);
+      // Allow saving if we have all fields (either freshly tested or pre-populated from saved config)
+      const [ok, setOk] = useState(hasSaved);
+
       const test = async () => {
-        if (!owner||!repo||!pat) { setMsg('Fill in all fields.'); return; }
-        setTesting(true); setMsg(''); setOk(false);
-        try { await testConn({owner,repo,pat}); setMsg('Connected!'); setOk(true); }
-        catch(e) { setMsg(`Error: ${e.message}`); }
+        if (!owner||!repo||!pat) { setMsg('Fill in all fields.'); setMsgOk(false); return; }
+        setTesting(true); setMsg('Testing...'); setMsgOk(false); setOk(false);
+        try {
+          await testConn({owner,repo,pat});
+          // Also verify write access by checking repo permissions
+          const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+            headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' }
+          });
+          const d = await res.json();
+          const canWrite = d.permissions?.push || d.permissions?.admin;
+          if (!canWrite) {
+            setMsg('Connected but token may lack write access. Check Contents: Read and write permission.');
+            setMsgOk(false); setOk(false);
+          } else {
+            setMsg(`✓ Connected to ${owner}/${repo} with write access`);
+            setMsgOk(true); setOk(true);
+          }
+        } catch(e) { setMsg(`Error: ${e.message}`); setMsgOk(false); }
         setTesting(false);
       };
+
       return (
-        <Modal onClose={onClose} title="GitHub Sync Setup" width={440}>
-          <div style={{ fontSize: 13, color: C.textSub, fontFamily: mono, lineHeight: 1.7, marginBottom: 16 }}>
-            Recipes are saved as JSON files in your GitHub repo. Token stored in this browser only.
+        <Modal onClose={onClose} title="GitHub Sync Setup" width={460}>
+          {hasSaved && (
+            <div style={{ fontSize: 12, color: C.green, fontFamily: mono, lineHeight: 1.6,
+              marginBottom: 14, padding: '8px 11px', border: `1px solid ${C.green}44`, borderRadius: 4 }}>
+              ✓ Saved config found — token is pre-filled. Click Test Connection to verify, or Save and Connect to keep current settings.
+            </div>
+          )}
+          <div style={{ marginBottom: 10 }}><Label>GitHub Username</Label>
+            <TxtInp value={owner} onChange={v => { setOwner(v); setOk(false); }} placeholder="e.g. krushcuts" />
           </div>
-          <div style={{ marginBottom: 10 }}><Label>GitHub Username</Label><TxtInp value={owner} onChange={setOwner} placeholder="e.g. krushcuts" /></div>
-          <div style={{ marginBottom: 10 }}><Label>Repository Name</Label><TxtInp value={repo} onChange={setRepo} placeholder="e.g. brew-builder" /></div>
-          <div style={{ marginBottom: 14 }}><Label>Personal Access Token (Contents: read+write)</Label><TxtInp value={pat} onChange={setPat} type="password" placeholder="github_pat_..." /></div>
-          {msg && <div style={{ fontSize: 13, fontFamily: mono, marginBottom: 12, color: ok?C.green:C.red, padding: '9px 11px', border: `1px solid ${ok?C.green:C.red}44`, borderRadius: 4 }}>{msg}</div>}
+          <div style={{ marginBottom: 10 }}><Label>Repository Name</Label>
+            <TxtInp value={repo} onChange={v => { setRepo(v); setOk(false); }} placeholder="e.g. brew-builder" />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <Label>Personal Access Token (fine-grained, Contents: read+write)</Label>
+            <TxtInp value={pat} onChange={v => { setPat(v); setOk(false); }} type="password" placeholder="github_pat_..." />
+            <div style={{ fontSize: 11, color: C.muted, fontFamily: mono, marginTop: 5, lineHeight: 1.5 }}>
+              github.com → Settings → Developer settings → Fine-grained tokens → Contents: Read and write
+            </div>
+          </div>
+          {msg && (
+            <div style={{ fontSize: 12, fontFamily: mono, marginBottom: 12, color: msgOk?C.green:C.red,
+              padding: '9px 11px', border: `1px solid ${msgOk?C.green:C.red}44`, borderRadius: 4, lineHeight: 1.5 }}>
+              {msg}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             {onClose && <Btn onClick={onClose} variant="ghost">Cancel</Btn>}
             <Btn onClick={test} variant="ghost" disabled={testing}>{testing?'Testing...':'Test Connection'}</Btn>
@@ -1224,7 +1276,7 @@
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, flexWrap:'wrap', gap:6 }}>
             <div style={{ fontSize:10, color:C.amberDim, letterSpacing:'0.2em', textTransform:'uppercase' }}>HOMEBREW RECIPE BUILDER</div>
             <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              <SyncBadge status={syncSt} onRetry={()=>{setSyncSt('idle');setDirty(true);}} />
+              <SyncBadge status={syncSt} error={syncErr} onRetry={()=>{setSyncSt('idle');setDirty(true);}} />
               <Btn onClick={()=>setShowSetup(true)} variant="ghost" sx={{fontSize:10,padding:'4px 8px',minHeight:28}}>GitHub</Btn>
             </div>
           </div>
